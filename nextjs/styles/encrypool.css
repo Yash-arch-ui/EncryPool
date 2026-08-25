@@ -1,0 +1,112 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --font-sans: var(--font-jakarta);
+  --font-serif: var(--font-fredoka);
+  --font-mono: var(--font-jetbrains);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-destructive: var(--primary);
+  --radius-sm: 0.6rem;
+  --radius-md: 0.8rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.35rem;
+  --radius-2xl: 1.7rem;
+  --radius-3xl: 2rem;
+}
+
+:root {
+  color-scheme: dark;
+  --background: #07090f;
+  --foreground: #f4f4f1;
+  --card: #10131c;
+  --card-foreground: #f4f4f1;
+  --primary: #ff6b4a;
+  --primary-foreground: #07090f;
+  --secondary: #2ec4b6;
+  --secondary-foreground: #07090f;
+  --accent: #ffc145;
+  --accent-foreground: #07090f;
+  --muted: #171b25;
+  --muted-foreground: #9da2af;
+  --border: #292e3b;
+  --radius: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 34%),
+      radial-gradient(circle at 10% 40%, color-mix(in srgb, var(--secondary) 8%, transparent), transparent 32%);
+  }
+  button,
+  a {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+.cipher-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.glass-panel {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--card) 88%, transparent),
+    color-mix(in srgb, var(--background) 68%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 7%, transparent),
+    0 24px 80px color-mix(in srgb, var(--background) 65%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.energy-text {
+  background: linear-gradient(100deg, var(--foreground) 20%, var(--primary) 60%, var(--accent));
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
