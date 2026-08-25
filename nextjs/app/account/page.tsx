@@ -1,18 +1,67 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, Gift, LockKeyhole } from "lucide-react";
+import toast from "react-hot-toast";
+import { useAccount } from "wagmi";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
 import { EncryptedBalance } from "~~/components/encrypool/encrypted-balance";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
+import { fetchActivity } from "~~/hooks/encrypool/draws";
+import { formatEncryptedAmount } from "~~/hooks/encrypool/shared";
+import { useClaimablePrize } from "~~/hooks/encrypool/useClaimablePrize";
+import { useEncryptedBalance } from "~~/hooks/encrypool/useEncryptedBalance";
 
-const activity = [
-  ["Deposit", "+ 500.00 USDC", "Aug 22, 2026"],
-  ["Withdraw", "− 120.00 USDC", "Aug 05, 2026"],
-  ["Deposit", "+ 2,100.50 USDC", "Jul 18, 2026"],
-];
 export default function AccountPage() {
   const [decrypted, setDecrypted] = useState(false);
+  const { address, isConnected } = useAccount();
+  const {
+    checkResult,
+    isChecking,
+    claimable,
+    claimedByMe,
+    claim,
+    requestPrizeReveal,
+    prizeAmountClear,
+    isRevealingPrize,
+  } = useClaimablePrize();
+  const { symbol, decimals } = useEncryptedBalance();
+
+  const activityQuery = useQuery({
+    queryKey: ["encrypool", "activity", address],
+    enabled: Boolean(isConnected && address),
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    queryFn: () => fetchActivity(address!),
+  });
+  const activity = activityQuery.data ?? [];
+
+  const onCheckResult = async () => {
+    if (!isConnected) {
+      toast.error("Connect your wallet first");
+      return;
+    }
+    const res = await checkResult();
+    if (!claimable && !res.iWon && res.revealed === 0 && claimedByMe === null) {
+      toast.success("No pending draws to verify yet.");
+    } else if (res.revealed > 0 && !res.iWon) {
+      toast.success(`Winner revealed for ${res.revealed} draw${res.revealed > 1 ? "s" : ""} — not you this time.`);
+    }
+  };
+
+  // Card content follows the real draw lifecycle while keeping the design:
+  // Encrypted -> Check result -> Claim prize -> Reveal amount -> plaintext.
+  let actionLabel = "Check result";
+  let actionHandler: () => void = onCheckResult;
+  if (prizeAmountClear !== undefined || (claimedByMe !== null && claimedByMe.claimed)) {
+    actionLabel = "Reveal amount";
+    actionHandler = () => requestPrizeReveal();
+  } else if (claimable !== null) {
+    actionLabel = "Claim prize";
+    actionHandler = () => void claim(claimable.drawId);
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
       <p className="font-mono text-xs font-bold text-primary">PRIVATE ACCOUNT</p>
@@ -33,19 +82,31 @@ export default function AccountPage() {
         <section>
           <h2 className="font-serif text-3xl font-bold">Activity</h2>
           <div className="mt-5 flex flex-col gap-3">
-            {activity.map(([type, amount, date], i) => (
-              <AnimatedContent key={date} delay={i * 0.07}>
+            {!isConnected && (
+              <article className="glass-panel flex items-center justify-between gap-4 rounded-2xl p-5">
+                <p className="text-sm text-muted-foreground">Connect your wallet to see your encrypted activity.</p>
+              </article>
+            )}
+            {isConnected && activity.length === 0 && (
+              <article className="glass-panel flex items-center justify-between gap-4 rounded-2xl p-5">
+                <p className="text-sm text-muted-foreground">
+                  No deposits or withdrawals yet — your first deposit registers you for draws.
+                </p>
+              </article>
+            )}
+            {activity.map((entry, i) => (
+              <AnimatedContent key={`${entry.txHash}-${i}`} delay={i * 0.07}>
                 <article className="glass-panel flex items-center justify-between gap-4 rounded-2xl p-5">
                   <div className="flex items-center gap-4">
                     <span className="flex size-10 items-center justify-center rounded-full bg-muted">
-                      {type === "Deposit" ? <ArrowDownLeft /> : <ArrowUpRight />}
+                      {entry.type === "Deposit" ? <ArrowDownLeft /> : <ArrowUpRight />}
                     </span>
                     <div>
-                      <p className="font-bold">{type}</p>
-                      <p className="text-xs text-muted-foreground">{date}</p>
+                      <p className="font-bold">{entry.type}</p>
+                      <p className="text-xs text-muted-foreground">{entry.date}</p>
                     </div>
                   </div>
-                  <p className="font-mono text-sm font-bold">{amount}</p>
+                  <p className="font-mono text-sm font-bold">{entry.amount}</p>
                 </article>
               </AnimatedContent>
             ))}
@@ -55,13 +116,18 @@ export default function AccountPage() {
           <Gift className="text-accent" />
           <p className="mt-8 text-xs font-bold text-muted-foreground">CLAIMABLE PRIZE</p>
           <p className="mt-3 font-mono text-xl font-bold">
-            <LockKeyhole className="inline text-accent" /> Encrypted
+            <LockKeyhole className="inline text-accent" />{" "}
+            {prizeAmountClear !== undefined ? formatEncryptedAmount(prizeAmountClear, decimals, symbol) : "Encrypted"}
           </p>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             Only your wallet can check and decrypt the result.
           </p>
-          <button className="mt-8 w-full rounded-full bg-accent px-4 py-3 font-bold text-accent-foreground">
-            Check result
+          <button
+            onClick={actionHandler}
+            disabled={isChecking || isRevealingPrize}
+            className="mt-8 w-full rounded-full bg-accent px-4 py-3 font-bold text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            {isChecking ? "Verifying on KMS…" : isRevealingPrize ? "Decrypting…" : actionLabel}
           </button>
         </aside>
       </div>
