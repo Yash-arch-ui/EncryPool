@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, LockKeyhole } from "lucide-react";
 import { EncryptedBalance } from "~~/components/encrypool/encrypted-balance";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { MetallicVaultMark } from "~~/components/encrypool/metallic-vault-mark";
+import { formatCountdown, useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 
 export default function VaultDetailPage() {
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
   const energized = mode === "deposit" && Number(amount) > 0;
+  const { nextDrawAtMs } = useDrawHistory();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
   return (
     <main className="mx-auto max-w-6xl px-5 py-14 lg:px-8">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -19,7 +27,7 @@ export default function VaultDetailPage() {
         </div>
         <div className="glass-panel rounded-2xl p-4">
           <p className="font-mono text-[10px] text-muted-foreground">NEXT DRAW</p>
-          <p className="mt-1 font-mono text-xl font-bold text-accent">02:14:37:09</p>
+          <p className="mt-1 font-mono text-xl font-bold text-accent">{formatCountdown(nextDrawAtMs, now ?? 0)}</p>
         </div>
       </div>
       <div className="mt-10 grid gap-8 lg:grid-cols-2">

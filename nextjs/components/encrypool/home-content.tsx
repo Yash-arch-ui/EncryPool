@@ -5,6 +5,7 @@ import { ArrowRight, EyeOff, Gauge, LockKeyhole, ShieldCheck, Sparkles } from "l
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
 import BlurText from "~~/components/encrypool/BlurText";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
+import { useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 
 const steps = [
   ["01", "Deposit", "Your browser encrypts the amount before it ever reaches the vault."],
@@ -19,6 +20,8 @@ const reasons = [
 ];
 
 export function HomeContent() {
+  const { drawCount, isLoading: drawsLoading } = useDrawHistory();
+  const drawCountLabel = drawsLoading ? "…" : String(drawCount);
   return (
     <main className="overflow-hidden">
       <section className="relative min-h-[calc(100svh-73px)] border-b border-border/70">
@@ -68,7 +71,7 @@ export function HomeContent() {
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-3 lg:px-8">
           {[
             ["TOTAL VALUE LOCKED", "ENCRYPTED"],
-            ["DRAWS VERIFIED", "1,042"],
+            ["DRAWS VERIFIED", drawCountLabel],
             ["NETWORK", "SEPOLIA"],
           ].map(([k, v], index) => (
             <div
