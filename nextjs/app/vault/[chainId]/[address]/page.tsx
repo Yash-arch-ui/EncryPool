@@ -1,29 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, LockKeyhole } from "lucide-react";
+import toast from "react-hot-toast";
+import { parseUnits } from "viem";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { waitForTransactionReceipt } from "wagmi/actions";
 import { EncryptedBalance } from "~~/components/encrypool/encrypted-balance";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { MetallicVaultMark } from "~~/components/encrypool/metallic-vault-mark";
+import { erc7984Abi, vaultDeployment } from "~~/hooks/encrypool/shared";
 import { formatCountdown, useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
+import { useEncryptedBalance } from "~~/hooks/encrypool/useEncryptedBalance";
+import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+
+// abitype maps uint48 -> number (fits safely); MaxUint48 as a plain number
+const MAX_UINT48 = 2 ** 48 - 1;
 
 export default function VaultDetailPage() {
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
   const energized = mode === "deposit" && Number(amount) > 0;
+
+  const { address, isConnected } = useAccount();
+  const vault = vaultDeployment();
   const { nextDrawAtMs } = useDrawHistory();
+  const { refreshPosition, submitEncryptedAmount, symbol, decimals, tokenAddress } = useEncryptedBalance();
+
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // ── ERC-7984 operator approval (required once before the first deposit):
+  // the vault pulls confidential tokens on the user's behalf.
+  const { data: isOperator, refetch: refetchOperator } = useReadContract({
+    address: tokenAddress,
+    abi: erc7984Abi,
+    functionName: "isOperator" as const,
+    args: [address!, vault!.address],
+    query: { enabled: Boolean(tokenAddress && address && vault && isConnected) },
+  });
+
+  const { writeContractAsync } = useWriteContract();
+
+  const parsedAmount = useMemo(() => {
+    try {
+      if (!amount || Number(amount) <= 0) return undefined;
+      return parseUnits(amount as `${number}`, decimals);
+    } catch {
+      return undefined;
+    }
+  }, [amount, decimals]);
+
+  const needsApproval = mode === "deposit" && isConnected && isOperator === false;
+
+  const submit = async () => {
+    if (!isConnected || !address || !vault) {
+      toast.error("Connect your wallet first");
+      return;
+    }
+    if (!parsedAmount) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "deposit" && !isOperator && tokenAddress) {
+        toast.loading("Approving vault as confidential operator…", { id: "approve", duration: Infinity });
+        const approveTx = await writeContractAsync({
+          address: tokenAddress,
+          abi: erc7984Abi,
+          functionName: "setOperator",
+          args: [vault.address, MAX_UINT48],
+        });
+        await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
+        toast.dismiss("approve");
+        toast.success("Vault approved as operator");
+        refetchOperator();
+      }
+
+      toast.loading(`Encrypting ${mode} amount client-side…`, { id: "tx", duration: Infinity });
+      const res = await submitEncryptedAmount(parsedAmount, mode);
+      toast.dismiss("tx");
+      if (res.ok) {
+        toast.success(`${mode === "deposit" ? "Deposit" : "Withdraw"} submitted — ciphertext sealed on Sepolia`, {
+          duration: 6000,
+        });
+        setAmount("");
+        await refreshPosition();
+      } else {
+        toast.error(res.error ?? "Transaction failed");
+      }
+    } catch (e) {
+      toast.dismiss("tx");
+      toast.dismiss("approve");
+      toast.error(e instanceof Error ? e.message.slice(0, 160) : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-5 py-14 lg:px-8">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs font-bold text-primary">USDC · SEPOLIA · LIVE</p>
-          <h1 className="mt-3 text-balance font-serif text-4xl font-bold sm:text-6xl">Encrypool USDC Vault</h1>
+          <p className="font-mono text-xs font-bold text-primary">{symbol.toUpperCase()} · SEPOLIA · LIVE</p>
+          <h1 className="mt-3 text-balance font-serif text-4xl font-bold sm:text-6xl">
+            Encrypool {symbol.toUpperCase()} Vault
+          </h1>
         </div>
         <div className="glass-panel rounded-2xl p-4">
           <p className="font-mono text-[10px] text-muted-foreground">NEXT DRAW</p>
@@ -54,19 +142,29 @@ export default function VaultDetailPage() {
               id="amount"
               inputMode="decimal"
               value={amount}
-              onChange={event => setAmount(event.target.value)}
+              onChange={event => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
               placeholder="0.00"
               className="min-w-0 flex-1 bg-transparent py-5 font-mono text-2xl outline-none"
             />
-            <strong className="font-mono">USDC</strong>
+            <strong className="font-mono">{symbol.toUpperCase()}</strong>
           </div>
           <p className="mt-3 flex gap-2 text-sm leading-relaxed text-muted-foreground">
             <LockKeyhole className="mt-0.5 shrink-0 text-secondary" />
             Your input is encrypted client-side before it reaches the chain.
           </p>
-          <button className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-4 font-bold text-background">
+          <button
+            onClick={submit}
+            disabled={busy || !parsedAmount}
+            className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-4 font-bold text-background disabled:pointer-events-none disabled:opacity-50"
+          >
             {mode === "deposit" ? <ArrowDownToLine /> : <ArrowUpFromLine />}
-            {mode === "deposit" ? "Encrypt & deposit" : "Decrypt & withdraw"}
+            {busy
+              ? "Waiting for confirmation…"
+              : mode === "deposit"
+                ? needsApproval
+                  ? "Approve & encrypt-deposit"
+                  : "Encrypt & deposit"
+                : "Decrypt & withdraw"}
           </button>
         </section>
         <div className="flex flex-col gap-6">
