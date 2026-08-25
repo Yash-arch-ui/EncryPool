@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ── PoolTogether landing design system (layout heritage: pooltogether.com, MIT) ── */
+@layer base {
+  @font-face {
+    font-family: "Averta";
+    font-weight: 500;
+    font-display: swap;
+    src:
+      url("/fonts/averta/averta-regular.woff2") format("woff2"),
+      url("/fonts/averta/averta-regular.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "Averta";
+    font-weight: 600;
+    font-display: swap;
+    src:
+      url("/fonts/averta/averta-semibold.woff2") format("woff2"),
+      url("/fonts/averta/averta-semibold.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "Averta";
+    font-weight: 700;
+    font-display: swap;
+    src:
+      url("/fonts/averta/averta-bold.woff2") format("woff2"),
+      url("/fonts/averta/averta-bold.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "PTInter";
+    font-weight: 300;
+    font-display: swap;
+    src: url("/fonts/inter/inter-light.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "PTInter";
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/inter/inter-regular.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "PTInter";
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/inter/inter-medium.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "PTInter";
+    font-weight: 600;
+    font-display: swap;
+    src: url("/fonts/inter/inter-semibold.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: "PTInter";
+    font-weight: 700;
+    font-display: swap;
+    src: url("/fonts/inter/inter-bold.woff") format("woff");
+  }
+}
+
+@theme {
+  /* PoolTogether palette */
+  --color-pt-purple-50: #f5f0ff;
+  --color-pt-purple-100: #deceff;
+  --color-pt-purple-200: #c8adff;
+  --color-pt-purple-300: #b18cff;
+  --color-pt-purple-400: #9b6aff;
+  --color-pt-purple-500: #8050e3;
+  --color-pt-purple-600: #6538c1;
+  --color-pt-purple-700: #4c249f;
+  --color-pt-purple-800: #36147d;
+  --color-pt-purple-900: #24095b;
+  --color-pt-teal: #35f0d0;
+  --color-pt-teal-dark: #0dc5a5;
+  --color-pt-pink: #fa48e8;
+  --color-pt-pink-dark: #b623a7;
+  --color-pt-bg-purple: #2d0c66;
+  --color-pt-bg-purple-light: #5d3a97;
+  --color-pt-bg-purple-dark: #2d0c66;
+  --color-pt-bg-purple-darker: #21064e;
+  --color-pt-gold: #ffb636;
+  --color-pt-transparent: #f5f0ff1a;
+
+  --font-averta: "Averta", sans-serif;
+  --font-pt-inter: "PTInter", ui-sans-serif, system-ui, sans-serif;
+
+  --breakpoint-3xl: 1900px;
+  --breakpoint-4xl: 2200px;
+}
+
+@theme {
+  --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
+  --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  /* FHEgether palette */
+  --color-void: #0a0612;
+  --color-encrypted: #7f3fff;
+  --color-cipher: #ff2e88;
+  --color-vault: #39ff88;
+  --color-ghost: #edeaf5;
+  --color-static: #4a4459;
+
+  /* FHEgether type system (loaded via CDN <link> in layout.tsx) */
+  --font-display: "Chakra Petch", "Telegraf", sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --animate-dashflow: dashflow 0.9s linear infinite;
+  --animate-scanline: scanline 9s linear infinite;
+  --animate-flicker: flicker 4s steps(12) infinite;
+  --animate-glowpulse: glowpulse 3.2s ease-in-out infinite;
+}
+
+/* ── FHEgether keyframes ─────────────────────────────────────────────── */
+@keyframes dashflow {
+  to {
+    background-position: 16px 0;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  8% {
+    opacity: 0.86;
+  }
+  9% {
+    opacity: 1;
+  }
+  37% {
+    opacity: 0.93;
+  }
+  38% {
+    opacity: 1;
+  }
+  73% {
+    opacity: 0.82;
+  }
+  74% {
+    opacity: 1;
+  }
+}
+
+@keyframes glowpulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes runner {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 6px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-decor {
+    animation: none !important;
+  }
+}
+
+@plugin "daisyui" {
+  themes:
+    light,
+    dark --prefersdark;
+}
+
+@plugin "daisyui/theme" {
+  name: "light";
+
+  --color-primary: #93bbfb;
+  --color-primary-content: #212638;
+  --color-secondary: #dae8ff;
+  --color-secondary-content: #212638;
+  --color-accent: #93bbfb;
+  --color-accent-content: #212638;
+  --color-neutral: #212638;
+  --color-neutral-content: #ffffff;
+  --color-base-100: #e8e8e8;
+  --color-base-200: #e8e8e8;
+  --color-base-300: #e8e8e8;
+  --color-base-content: #212638;
+  --color-info: #93bbfb;
+  --color-success: #34eeb6;
+  --color-warning: #ffcf72;
+  --color-error: #ff8863;
+
+  --radius-field: 9999rem;
+  --radius-box: 1rem;
+  --tt-tailw: 6px;
+}
+
+@plugin "daisyui/theme" {
+  name: "dark";
+
+  --color-primary: #212638;
+  --color-primary-content: #f9fbff;
+  --color-secondary: #323f61;
+  --color-secondary-content: #f9fbff;
+  --color-accent: #4969a6;
+  --color-accent-content: #f9fbff;
+  --color-neutral: #f9fbff;
+  --color-neutral-content: #385183;
+  --color-base-100: #b7791f;
+  --color-base-200: #975a16;
+  --color-base-300: #744210;
+  --color-base-content: #f9fbff;
+  --color-info: #385183;
+  --color-success: #34eeb6;
+  --color-warning: #ffcf72;
+  --color-error: #ff8863;
+
+  --radius-field: 9999rem;
+  --radius-box: 1rem;
+
+  --tt-tailw: 6px;
+  --tt-bg: var(--color-primary);
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  p {
+    margin: 1rem 0;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family:
+      var(--font-inter),
+      "Inter",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      Ubuntu,
+      Cantarell,
+      Noto Sans,
+      Helvetica Neue,
+      Arial,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin-bottom: 0.5rem;
+    line-height: 1;
+  }
+}
+
+:root,
+[data-theme] {
+  background: var(--color-base-200);
+}
+
+.btn {
+  @apply shadow-md;
+}
+
+.btn.btn-ghost {
+  @apply shadow-none;
+}
+
+.link {
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  opacity: 80%;
+}

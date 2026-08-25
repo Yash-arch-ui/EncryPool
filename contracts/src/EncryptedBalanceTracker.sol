@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.27;
+
+import {FHE, ebool, euint64, euint128} from "@fhevm/solidity/lib/FHE.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+
+/// @title EncryptedBalanceTracker
+/// @notice Checkpointed encrypted balance-over-time tracker. Lightweight stand-in for
+/// PoolTogether V5's TWAB Controller: instead of a continuous piecewise time-weighted
+/// average (one checkpoint per balance change, binary-searched and summed over the draw
+/// window), it keeps a single (encrypted balance, encrypted timestamp) checkpoint per
+/// account, refreshed by the vault on every deposit/withdraw. At draw time it yields an
+/// eligibility weight of balance x min(elapsed, window), evaluated fully under encryption.
+contract EncryptedBalanceTracker is ZamaEthereumConfig {
+    struct Checkpoint {
+        euint64 balance;
+        euint64 timestamp;
+    }
+
+    /// @dev Upper bound on the weight's time factor so stale checkpoints cannot dominate
+    /// draws forever and weight products stay far from euint128 truncation.
+    uint64 public constant MAX_WEIGHT_WINDOW = 30 days;
+
+    /// @dev The only address allowed to move balances (the vault owning this tracker).
+    address public immutable vault;
+
+    mapping(address account => Checkpoint) private _checkpoints;
+
+    error UnauthorizedCaller(address caller);
+
+    constructor(address vault_) ZamaEthereumConfig() {
+        vault = vault_;
+    }
+
+    /// @notice Records a new encrypted checkpoint for `account`.
+    /// @dev The vault must grant this contract transient access to `newBalance`
+    /// (`FHE.allowTransient`) before calling. The stored handle is re-derived here via a
+    /// no-op select so its persistent ACL owner is this tracker, not the vault.
+    function update(address account, euint64 newBalance) external {
+        if (msg.sender != vault) revert UnauthorizedCaller(msg.sender);
+
+        Checkpoint storage checkpoint = _checkpoints[account];
+        checkpoint.balance = FHE.select(FHE.asEbool(true), newBalance, FHE.asEuint64(0));
+        // Transaction timestamps are public on any chain, so encryption adds no on-chain
+        // secrecy; keeping them as ciphertexts lets duration math run purely under FHE and
+        // keeps plaintext columns out of storage for off-chain analysts.
+        checkpoint.timestamp = FHE.asEuint64(uint64(block.timestamp));
+
+        FHE.allowThis(checkpoint.balance);
+        FHE.allowThis(checkpoint.timestamp);
+        FHE.allow(checkpoint.balance, account);
+        FHE.allow(checkpoint.timestamp, account);
+    }
+
+    /// @notice Encrypted checkpoint accessors. Uninitialized accounts return zero handles.
+    function checkpointOf(address account) external view returns (euint64 balance, euint64 timestamp) {
+        Checkpoint storage checkpoint = _checkpoints[account];
+        return (checkpoint.balance, checkpoint.timestamp);
+    }
+
+    /// @notice Computes the account's current eligibility weight:
+    ///         checkpointed balance x min(seconds since checkpoint, MAX_WEIGHT_WINDOW),
+    ///         entirely under encryption into a fresh euint128 handle owned by this
+    ///         tracker; the caller receives transient access so it can consume the handle
+    ///         in the same transaction without ever seeing the plaintext.
+    function computeWeight(address account) external returns (euint128 weight) {
+        Checkpoint storage checkpoint = _checkpoints[account];
+        if (!FHE.isInitialized(checkpoint.balance)) {
+            return FHE.asEuint128(0);
+        }
+
+        euint64 elapsed = FHE.sub(FHE.asEuint64(uint64(block.timestamp)), checkpoint.timestamp);
+        euint64 capped = FHE.min(elapsed, FHE.asEuint64(MAX_WEIGHT_WINDOW));
+        // euint128 product: sane balances (<= ~10^12 base units) times the 30-day cap can
+        // never wrap, whereas euint64 multiplication would silently truncate.
+        weight = FHE.mul(FHE.asEuint128(capped), FHE.asEuint128(checkpoint.balance));
+
+        FHE.allowThis(weight);
+        FHE.allow(weight, account);
+        FHE.allowTransient(weight, msg.sender);
+    }
+}
