@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LockKeyhole, Menu, X } from "lucide-react";
+import { EncrypoolConnectButton } from "~~/components/encrypool/EncrypoolConnectButton";
 
 const links = [
   ["Vaults", "/vaults"],
@@ -37,9 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <button className="hidden rounded-full border border-primary/50 bg-primary/10 px-4 py-2 font-mono text-xs text-primary transition-colors hover:bg-primary hover:text-primary-foreground md:block">
-            connect_wallet
-          </button>
+          <div className="hidden md:block">
+            <EncrypoolConnectButton />
+          </div>
           <button
             aria-label="Toggle navigation"
             aria-expanded={open}
