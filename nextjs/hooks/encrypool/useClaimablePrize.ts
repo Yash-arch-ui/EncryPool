@@ -19,6 +19,10 @@ export type ClaimStatus = {
   claimable: DrawState | null;
   /** A win already claimed by this wallet (amount decryptable by them). */
   claimedByMe: DrawState | null;
+  /** Won + fulfilled but the pot handle is the all-zero handle: the draw
+   *  snapshot was taken while prizeLiquidity was never funded, and claim()
+   *  would revert on the uninitialized handle. Surface instead of reverting. */
+  emptyPotWin: DrawState | null;
 };
 
 /**
@@ -46,17 +50,18 @@ export function useClaimablePrize() {
     queryFn: fetchDrawStates,
   });
   const states: DrawState[] = useMemo(() => statesQuery.data ?? [], [statesQuery.data]);
-
   const status: ClaimStatus = useMemo(() => {
     const mine = address ? states.filter(s => s.winner.toLowerCase() === (address as string).toLowerCase()) : [];
+    const ZERO_HANDLE = "0x" + "0".repeat(64);
+    const isEmptyPot = (s: DrawState) => s.amount === ZERO_HANDLE;
     return {
       myWins: mine,
       unfulfilled: states.filter(s => !s.fulfilled),
-      claimable: mine.find(s => s.fulfilled && !s.claimed) ?? null,
+      claimable: mine.find(s => s.fulfilled && !s.claimed && !isEmptyPot(s)) ?? null,
       claimedByMe: mine.find(s => s.claimed) ?? null,
+      emptyPotWin: mine.find(s => s.fulfilled && !s.claimed && isEmptyPot(s)) ?? null,
     };
   }, [states, address]);
-
   // ── Public decryption (KMS-verified) + fulfillWinner submission ──────────
   const publicDecrypt = usePublicDecrypt();
   const { writeContractAsync } = useWriteContract();
