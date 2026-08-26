@@ -43,12 +43,26 @@ export function HomeContent() {
               The prize vault where deposits remain confidential, yield stays productive, and every draw is publicly
               verifiable.
             </p>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-5">
               <Link
-                href="/vaults"
-                className="group flex items-center gap-3 rounded-full bg-primary px-6 py-4 font-mono text-sm font-bold text-primary-foreground shadow-[0_0_36px_color-mix(in_srgb,var(--primary)_34%,transparent)] transition-transform hover:-translate-y-1"
+                href="/launch"
+                aria-label="Use Encrypool"
+                className="group relative flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] bg-primary text-primary-foreground shadow-[0_0_44px_color-mix(in_srgb,var(--primary)_38%,transparent)] transition-transform duration-300 hover:-translate-y-1"
               >
-                {"> enter_vault"} <ArrowRight className="transition-transform group-hover:translate-x-1" />
+                <span
+                  aria-hidden
+                  className="absolute inset-0 animate-glowpulse rounded-[1.75rem] bg-secondary/40 blur-xl"
+                />
+                <span
+                  aria-hidden
+                  className="absolute -inset-12 animate-spinslow bg-[conic-gradient(from_0deg,transparent_0%,transparent_58%,color-mix(in_srgb,var(--secondary)_80%,transparent)_78%,transparent_96%)]"
+                />
+                <span aria-hidden className="absolute inset-[3px] rounded-[1.45rem] bg-primary" />
+                <span className="relative flex flex-col items-center gap-1.5 font-mono text-xs font-bold leading-relaxed tracking-[0.18em]">
+                  <span>USE</span>
+                  <span>ENCRYPOOL</span>
+                  <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
               </Link>
               <span className="font-mono text-xs text-muted-foreground">NO CUSTODY · NO BALANCE LEAKS</span>
             </div>

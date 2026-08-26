@@ -118,6 +118,7 @@
   --animate-scanline: scanline 9s linear infinite;
   --animate-flicker: flicker 4s steps(12) infinite;
   --animate-glowpulse: glowpulse 3.2s ease-in-out infinite;
+  --animate-spinslow: spinslow 7s linear infinite;
 }
 
 /* ── FHEgether keyframes ─────────────────────────────────────────────── */
@@ -170,6 +171,12 @@
   50% {
     opacity: 0.85;
     transform: scale(1.06);
+  }
+}
+
+@keyframes spinslow {
+  to {
+    transform: rotate(360deg);
   }
 }
 
