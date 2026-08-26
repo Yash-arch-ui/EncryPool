@@ -263,18 +263,20 @@
 /* Base colors for the few DaisyUI utility classes still in use (btn, dropdown,
    menu, etc.).  Values match the Encrypool palette so they don't clash with
    the design system defined in encrypool.css. */
-:root,
-[data-theme] {
-  --color-base-100: var(--card, #10131c);
-  --color-base-200: var(--card, #10131c);
-  --color-base-300: var(--muted, #171b25);
-  --color-base-content: var(--foreground, #f4f4f1);
-  --color-neutral: var(--muted, #171b25);
-  --color-neutral-content: var(--foreground, #f4f4f1);
-  --color-info: var(--primary, #ff6b4a);
-  --color-success: var(--secondary, #2ec4b6);
-  --color-warning: var(--accent, #ffc145);
-  --color-error: #ff8863;
+@layer base {
+  :root,
+  [data-theme] {
+    --color-base-100: var(--card, #10131c);
+    --color-base-200: var(--card, #10131c);
+    --color-base-300: var(--muted, #171b25);
+    --color-base-content: var(--foreground, #f4f4f1);
+    --color-neutral: var(--muted, #171b25);
+    --color-neutral-content: var(--foreground, #f4f4f1);
+    --color-info: var(--primary, #ff6b4a);
+    --color-success: var(--secondary, #2ec4b6);
+    --color-warning: var(--accent, #ffc145);
+    --color-error: #ff8863;
+  }
 }
 
 .btn {

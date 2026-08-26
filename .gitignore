@@ -22,4 +22,6 @@ CLAUDE.md
 .claude
 # frontend env
 nextjs/.env*
+
+# standalone frontend (not part of the workspace)
 frontend/
