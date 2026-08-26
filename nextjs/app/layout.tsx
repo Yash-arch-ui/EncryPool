@@ -3,9 +3,9 @@ import "@rainbow-me/rainbowkit/styles.css";
 import type { Metadata, Viewport } from "next";
 import { DappWrapperWithProviders } from "~~/components/DappWrapperWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
-// Encrypool design system (merged frontend) — loaded after the template sheet
-// so its tokens win the cascade inside the Encrypool shell.
 import "~~/styles/encrypool.css";
+// Template sheet first, Encrypool design system last — its tokens/effects must
+// win the cascade inside the Encrypool shell.
 import "~~/styles/globals.css";
 
 const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-fredoka", display: "swap" });

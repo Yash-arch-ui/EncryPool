@@ -59,15 +59,21 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     background-image:
-      radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 34%),
-      radial-gradient(circle at 10% 40%, color-mix(in srgb, var(--secondary) 8%, transparent), transparent 32%);
+      radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 36%),
+      radial-gradient(circle at 10% 40%, color-mix(in srgb, var(--secondary) 14%, transparent), transparent 34%);
   }
   button,
   a {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
+}
+
+/* Unlayered guard: the template sheet paints :root with daisyUI's base-200,
+   which would otherwise beat every layered background and wash out the app. */
+:root {
+  background: var(--background);
 }
 
 .cipher-grid {

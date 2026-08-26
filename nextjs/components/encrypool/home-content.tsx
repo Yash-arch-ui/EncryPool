@@ -70,7 +70,7 @@ export function HomeContent() {
           <div className="relative">
             <div className="absolute inset-x-[15%] top-[15%] aspect-square rounded-full bg-primary/10 blur-3xl" />
             <FheOrb />
-            <div className="glass-panel absolute bottom-8 left-0 rounded-2xl px-4 py-3 sm:left-8">
+            <div className="glass-panel absolute bottom-8 left-[55%] -translate-x-1/2 rounded-2xl px-5 py-3 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_color-mix(in_srgb,var(--secondary)_30%,transparent)]">
               <p className="font-mono text-[10px] text-muted-foreground">ENCRYPTION STATUS</p>
               <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
                 <span className="size-2 rounded-full bg-secondary shadow-[0_0_10px_var(--secondary)]" />
