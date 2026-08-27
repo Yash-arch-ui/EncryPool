@@ -8,15 +8,27 @@ import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 
 const steps = [
-  ["01", "Deposit", "Your browser encrypts the amount before it ever reaches the vault."],
-  ["02", "Pool privately", "Principal compounds together while every individual balance stays sealed."],
-  ["03", "Draw publicly", "Yield becomes prizes through a verifiable draw anyone can audit."],
-  ["04", "Claim alone", "Only the winning wallet can decrypt and reveal its prize."],
+  ["01", "Encrypt on deposit", "Your browser encrypts your balance before it leaves the wallet."],
+  ["02", "Pool sealed", "Deposits accumulate together while each balance stays encrypted."],
+  ["03", "Draw on-chain", "A verifiable draw selects winners without exposing any balances."],
+  ["04", "Decrypt & claim", "Only the winning wallet can decrypt and reveal its prize."],
 ];
 const reasons = [
-  [EyeOff, "No balance snooping", "Observers see a proof and ciphertext—not your savings."],
-  [Gauge, "No front-running", "Encrypted positions prevent last-second balance targeting."],
-  [ShieldCheck, "Selective disclosure", "Prize values unlock only for the wallet that won."],
+  [
+    EyeOff,
+    "Balances stay encrypted on-chain",
+    "Observers see only a ciphertext hash — your balance is never published.",
+  ],
+  [
+    Gauge,
+    "Encrypted amounts, no targeting",
+    "Since balances are sealed, attackers cannot front-run or target high-value accounts.",
+  ],
+  [
+    ShieldCheck,
+    "Winners reveal, everyone else stays hidden",
+    "Decryption only works for the winning wallet, so all other balances stay sealed.",
+  ],
 ];
 
 export function HomeContent() {
@@ -34,14 +46,14 @@ export function HomeContent() {
               · PUBLIC PROOF
             </div>
             <BlurText
-              text="Save encrypted. Win unseen."
+              text="Save Secretly. Win on-Chain."
               animateBy="words"
               delay={120}
-              className="text-balance font-serif text-5xl font-bold leading-[.96] tracking-tight sm:text-7xl lg:text-8xl"
+              className="text-balance font-serif text-[2.7rem] font-bold leading-[.96] tracking-tight sm:text-[4.05rem] lg:text-[5.4rem] max-w-3xl"
             />
             <p className="max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              The prize vault where deposits remain confidential, yield stays productive, and every draw is publicly
-              verifiable.
+              Deposit and withdraw anytime — your balance stays encrypted the whole time you hold it. Prizes are funded
+              by the pool and every draw is provably fair on-chain.
             </p>
             <div className="flex flex-wrap items-center gap-5">
               <Link
@@ -84,7 +96,7 @@ export function HomeContent() {
       <section className="border-b border-border bg-card/45">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-3 lg:px-8">
           {[
-            ["TOTAL VALUE LOCKED", "ENCRYPTED"],
+            ["TOTAL DEPOSITED", "ENCRYPTED"],
             ["DRAWS VERIFIED", drawCountLabel],
             ["NETWORK", "SEPOLIA"],
           ].map(([k, v], index) => (
@@ -164,7 +176,7 @@ export function HomeContent() {
           <span className="energy-text">Your balance belongs to you.</span>
         </h2>
         <p className="mx-auto mt-5 max-w-2xl text-muted-foreground">
-          Step into a savings protocol designed for proof without exposure.
+          Deposit, hold, and verify — all without revealing your balance.
         </p>
         <Link
           href="/vaults"

@@ -15,7 +15,7 @@ export default function VaultsPage() {
         <div>
           <p className="font-mono text-xs font-bold text-primary">PRIZE VAULTS</p>
           <h1 className="mt-4 max-w-3xl text-balance font-serif text-5xl font-bold sm:text-7xl">
-            Save privately. Win publicly.
+            Encrypted stake. Proven luck.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Every deposit preserves principal, enters the pooled draw, and remains hidden behind FHE.
