@@ -3,10 +3,10 @@ import "@rainbow-me/rainbowkit/styles.css";
 import type { Metadata, Viewport } from "next";
 import { DappWrapperWithProviders } from "~~/components/DappWrapperWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
-import "~~/styles/encrypool.css";
 // Template sheet first, Encrypool design system last — its tokens/effects must
 // win the cascade inside the Encrypool shell.
 import "~~/styles/globals.css";
+import "~~/styles/encrypool.css";
 
 const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-fredoka", display: "swap" });
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
