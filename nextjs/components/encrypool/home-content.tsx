@@ -113,23 +113,102 @@ export function HomeContent() {
 
       <section className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8">
         <AnimatedContent>
-          <p className="font-mono text-xs font-bold text-primary">THE PRIVATE PRIZE LOOP</p>
-          <h2 className="mt-4 max-w-3xl text-balance font-serif text-4xl font-bold sm:text-6xl">
-            One public vault. Four private moments.
-          </h2>
+          <p className="font-mono text-xs font-bold text-primary tracking-widest">THE ENCRYPTED DRAW CYCLE</p>
         </AnimatedContent>
-        <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {steps.map(([num, title, text], i) => (
-            <AnimatedContent key={title} delay={i * 0.1}>
-              <article className="glass-panel group relative h-full overflow-hidden rounded-3xl p-6">
-                <div className="absolute right-0 top-0 size-28 bg-gradient-to-bl from-primary/10 to-transparent" />
-                <span className="font-mono text-xs text-primary">{num}</span>
-                <div className="mt-8 size-2 rounded-full bg-secondary shadow-[0_0_16px_var(--secondary)]" />
-                <h3 className="mt-5 font-serif text-2xl font-bold">{title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{text}</p>
-              </article>
-            </AnimatedContent>
-          ))}
+        <div className="loop-wire-container mt-10">
+          <svg className="loop-wire-svg" viewBox="0 0 1100 520" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <filter id="wire-glow">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="node-glow">
+                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <linearGradient id="wire-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="var(--secondary)" stopOpacity="0.1" />
+                <stop offset="50%" stopColor="var(--secondary)" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.1" />
+              </linearGradient>
+              <linearGradient id="wire-grad-v" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="var(--secondary)" stopOpacity="0.1" />
+                <stop offset="50%" stopColor="var(--secondary)" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.1" />
+              </linearGradient>
+              <radialGradient id="node-fill">
+                <stop offset="0%" stopColor="var(--secondary)" stopOpacity="1" />
+                <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.4" />
+              </radialGradient>
+            </defs>
+            {/* top wire */}
+            <path
+              className="loop-wire-path"
+              d="M 250 130 L 850 130"
+              fill="none"
+              stroke="url(#wire-grad)"
+              strokeWidth="1.5"
+              filter="url(#wire-glow)"
+              strokeDasharray="10 6"
+            />
+            {/* right wire */}
+            <path
+              className="loop-wire-path"
+              d="M 850 130 L 850 390"
+              fill="none"
+              stroke="url(#wire-grad-v)"
+              strokeWidth="1.5"
+              filter="url(#wire-glow)"
+              strokeDasharray="10 6"
+            />
+            {/* bottom wire */}
+            <path
+              className="loop-wire-path"
+              d="M 850 390 L 250 390"
+              fill="none"
+              stroke="url(#wire-grad)"
+              strokeWidth="1.5"
+              filter="url(#wire-glow)"
+              strokeDasharray="10 6"
+            />
+            {/* left wire */}
+            <path
+              className="loop-wire-path"
+              d="M 250 390 L 250 130"
+              fill="none"
+              stroke="url(#wire-grad-v)"
+              strokeWidth="1.5"
+              filter="url(#wire-glow)"
+              strokeDasharray="10 6"
+            />
+            {/* corner nodes */}
+            <circle cx="250" cy="130" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
+            <circle cx="850" cy="130" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
+            <circle cx="850" cy="390" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
+            <circle cx="250" cy="390" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
+          </svg>
+          <div className="loop-wire-grid">
+            {steps.map(([num, title, text], i) => (
+              <AnimatedContent key={title} delay={i * 0.1}>
+                <article className="loop-card group relative h-full overflow-hidden rounded-3xl p-7">
+                  <div className="absolute right-0 top-0 size-32 bg-gradient-to-bl from-primary/8 to-transparent" />
+                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-secondary/5 via-transparent to-transparent" />
+                  <span className="relative font-mono text-[11px] font-semibold text-primary/80 tracking-wider">
+                    {num}
+                  </span>
+                  <div className="relative mt-8 size-2.5 rounded-full bg-secondary shadow-[0_0_20px_var(--secondary),0_0_40px_var(--secondary)]" />
+                  <h3 className="relative mt-5 font-serif text-2xl font-bold text-foreground/90">{title}</h3>
+                  <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground/80">{text}</p>
+                </article>
+              </AnimatedContent>
+            ))}
+          </div>
         </div>
       </section>
 
