@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, EyeOff, Gauge, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
 import BlurText from "~~/components/encrypool/BlurText";
+import TrueFocus from "~~/components/encrypool/TrueFocus";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 
@@ -46,7 +47,7 @@ export function HomeContent() {
               · PUBLIC PROOF
             </div>
             <BlurText
-              text="Save Secretly. Win on-Chain."
+              text="Save encrypted. Win verified."
               animateBy="words"
               delay={120}
               className="text-balance font-serif text-[2.7rem] font-bold leading-[.96] tracking-tight sm:text-[4.05rem] lg:text-[5.4rem] max-w-3xl"
@@ -113,10 +114,18 @@ export function HomeContent() {
 
       <section className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8">
         <AnimatedContent>
-          <p className="font-mono text-xs font-bold text-primary tracking-widest">THE ENCRYPTED DRAW CYCLE</p>
+          <TrueFocus
+            sentence="THE ENCRYPTED DRAW CYCLE"
+            blurAmount={4}
+            borderColor="var(--primary)"
+            glowColor="rgba(255, 107, 74, 0.5)"
+            animationDuration={0.6}
+            pauseBetweenAnimations={1.2}
+            className="text-3xl sm:text-4xl md:text-5xl tracking-wider"
+          />
         </AnimatedContent>
-        <div className="loop-wire-container mt-10">
-          <svg className="loop-wire-svg" viewBox="0 0 1100 520" preserveAspectRatio="xMidYMid meet">
+        <div className="loop-wire-container mt-20">
+          <svg className="loop-wire-svg" viewBox="0 0 1100 480" preserveAspectRatio="xMidYMid meet">
             <defs>
               <filter id="wire-glow">
                 <feGaussianBlur stdDeviation="5" result="blur" />
@@ -196,15 +205,15 @@ export function HomeContent() {
           <div className="loop-wire-grid">
             {steps.map(([num, title, text], i) => (
               <AnimatedContent key={title} delay={i * 0.1}>
-                <article className="loop-card group relative h-full overflow-hidden rounded-3xl p-7">
-                  <div className="absolute right-0 top-0 size-32 bg-gradient-to-bl from-primary/8 to-transparent" />
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-secondary/5 via-transparent to-transparent" />
-                  <span className="relative font-mono text-[11px] font-semibold text-primary/80 tracking-wider">
+                <article className="loop-card group relative h-full overflow-hidden rounded-2xl p-4">
+                  <div className="absolute right-0 top-0 size-20 bg-gradient-to-bl from-primary/8 to-transparent" />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-secondary/5 via-transparent to-transparent" />
+                  <span className="relative font-mono text-[10px] font-semibold text-primary/80 tracking-wider">
                     {num}
                   </span>
-                  <div className="relative mt-8 size-2.5 rounded-full bg-secondary shadow-[0_0_20px_var(--secondary),0_0_40px_var(--secondary)]" />
-                  <h3 className="relative mt-5 font-serif text-2xl font-bold text-foreground/90">{title}</h3>
-                  <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground/80">{text}</p>
+                  <div className="relative mt-5 size-2 rounded-full bg-secondary shadow-[0_0_14px_var(--secondary),0_0_28px_var(--secondary)]" />
+                  <h3 className="relative mt-3 font-serif text-lg font-bold text-foreground/90">{title}</h3>
+                  <p className="relative mt-2 text-xs leading-relaxed text-muted-foreground/80">{text}</p>
                 </article>
               </AnimatedContent>
             ))}
