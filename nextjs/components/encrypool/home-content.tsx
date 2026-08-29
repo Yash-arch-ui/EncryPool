@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, EyeOff, Gauge, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
 import BlurText from "~~/components/encrypool/BlurText";
+import PrivacyGuardian from "~~/components/encrypool/PrivacyGuardian";
 import TrueFocus from "~~/components/encrypool/TrueFocus";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
@@ -156,7 +157,6 @@ export function HomeContent() {
                 <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.4" />
               </radialGradient>
             </defs>
-            {/* top wire */}
             <path
               className="loop-wire-path"
               d="M 250 130 L 850 130"
@@ -166,7 +166,6 @@ export function HomeContent() {
               filter="url(#wire-glow)"
               strokeDasharray="10 6"
             />
-            {/* right wire */}
             <path
               className="loop-wire-path"
               d="M 850 130 L 850 390"
@@ -176,7 +175,6 @@ export function HomeContent() {
               filter="url(#wire-glow)"
               strokeDasharray="10 6"
             />
-            {/* bottom wire */}
             <path
               className="loop-wire-path"
               d="M 850 390 L 250 390"
@@ -186,7 +184,6 @@ export function HomeContent() {
               filter="url(#wire-glow)"
               strokeDasharray="10 6"
             />
-            {/* left wire */}
             <path
               className="loop-wire-path"
               d="M 250 390 L 250 130"
@@ -196,7 +193,6 @@ export function HomeContent() {
               filter="url(#wire-glow)"
               strokeDasharray="10 6"
             />
-            {/* corner nodes */}
             <circle cx="250" cy="130" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
             <circle cx="850" cy="130" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
             <circle cx="850" cy="390" r="5" fill="url(#node-fill)" filter="url(#node-glow)" className="loop-node" />
@@ -248,12 +244,8 @@ export function HomeContent() {
               })}
             </div>
           </div>
-          <div className="glass-panel relative rounded-[2rem]">
-            <FheOrb compact variant="vault" />
-            <div className="absolute inset-x-6 bottom-5 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-              <span>256-BIT CIPHERTEXT</span>
-              <span className="text-secondary">VERIFIED</span>
-            </div>
+          <div className="flex items-center justify-center">
+            <PrivacyGuardian />
           </div>
         </div>
       </section>
