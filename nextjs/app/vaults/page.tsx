@@ -21,8 +21,8 @@ export default function VaultsPage() {
             Every deposit preserves principal, enters the pooled draw, and remains hidden behind FHE.
           </p>
         </div>
-        <div className="glass-panel rounded-[2rem]">
-          <FheOrb compact variant="vault" />
+        <div className="flex justify-center min-h-[60vh] pt-72">
+          <FheOrb className="!h-[378px] lg:!h-[558px]" />
         </div>
       </div>
       <div className="relative mt-12 grid gap-6 lg:grid-cols-2">
