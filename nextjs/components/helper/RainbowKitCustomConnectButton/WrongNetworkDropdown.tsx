@@ -1,32 +1,41 @@
+import { useState, useRef } from "react";
 import { NetworkOptions } from "./NetworkOptions";
 import { useDisconnect } from "wagmi";
 import { ArrowLeftOnRectangleIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { useOutsideClick } from "~~/hooks/helper";
 
 export const WrongNetworkDropdown = () => {
   const { disconnect } = useDisconnect();
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useOutsideClick(dropdownRef, () => setOpen(false));
 
   return (
-    <div className="dropdown dropdown-end mr-2">
-      <label tabIndex={0} className="btn btn-error btn-sm dropdown-toggle gap-1">
-        <span>Wrong network</span>
-        <ChevronDownIcon className="h-6 w-4 ml-2 sm:ml-0" />
-      </label>
-      <ul
-        tabIndex={0}
-        className="dropdown-content menu p-2 mt-1 shadow-center shadow-accent bg-base-200 rounded-box gap-1"
+    <div ref={dropdownRef} className="relative mr-2">
+      <button
+        className="flex items-center gap-1 rounded-full border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs font-bold text-destructive transition-colors hover:bg-destructive/20"
+        onClick={() => setOpen(!open)}
+        type="button"
       >
-        <NetworkOptions />
-        <li>
-          <button
-            className="menu-item text-error btn-sm rounded-xl! flex gap-3 py-3"
-            type="button"
-            onClick={() => disconnect()}
-          >
-            <ArrowLeftOnRectangleIcon className="h-6 w-4 ml-2 sm:ml-0" />
-            <span>Disconnect</span>
-          </button>
-        </li>
-      </ul>
+        <span>Wrong network</span>
+        <ChevronDownIcon className="h-4 w-4 ml-2" />
+      </button>
+      {open && (
+        <ul className="absolute right-0 z-20 mt-1 min-w-[200px] rounded-xl border border-border bg-card p-2 shadow-xl gap-1 flex flex-col">
+          <NetworkOptions />
+          <li>
+            <button
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+              type="button"
+              onClick={() => disconnect()}
+            >
+              <ArrowLeftOnRectangleIcon className="h-4 w-4" />
+              <span>Disconnect</span>
+            </button>
+          </li>
+        </ul>
+      )}
     </div>
   );
 };
