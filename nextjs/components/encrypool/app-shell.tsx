@@ -75,7 +75,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {label}
               </Link>
             ))}
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-foreground">
+            <a
+              href="https://github.com/Yash-arch-ui/EncryPool"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground"
+            >
               GitHub
             </a>
           </div>
