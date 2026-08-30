@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
   },
   webpack: config => {
     config.externals.push("pino-pretty", "lokijs", "encoding");
+
+    // MetaMask SDK bundles a React Native async-storage import that only
+    // makes sense inside RN.  Stub it out so the Next.js browser build
+    // doesn't blow up with "Module not found".
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": false as unknown as string,
+    };
+
     return config;
   },
 };
