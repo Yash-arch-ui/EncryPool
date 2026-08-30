@@ -46,7 +46,9 @@ export const Balance = ({ address, className = "" }: BalanceProps) => {
   const formattedBalance = balance ? Number(formatEther(balance.value)) : 0;
 
   return (
-    <div className={`flex flex-col font-normal items-center rounded-lg px-2 py-1 hover:bg-muted transition-colors ${className}`}>
+    <div
+      className={`flex flex-col font-normal items-center rounded-lg px-2 py-1 hover:bg-muted transition-colors ${className}`}
+    >
       <div className="w-full flex items-center justify-center">
         <>
           <span>{formattedBalance.toFixed(4)}</span>
