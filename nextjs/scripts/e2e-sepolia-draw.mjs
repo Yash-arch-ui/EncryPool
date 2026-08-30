@@ -2,27 +2,76 @@
  * against LIVE Sepolia. Mirrors useClaimablePrize() in the UI.
  * Run AFTER e2e-sepolia-flow.mjs has registered a participant.
  */
+import { SepoliaConfig } from "@zama-fhe/sdk";
+import { RelayerNode } from "@zama-fhe/sdk/node";
 import fs from "node:fs";
 import { createPublicClient, createWalletClient, http } from "viem";
-import { sepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { RelayerNode } from "@zama-fhe/sdk/node";
-import { SepoliaConfig } from "@zama-fhe/sdk";
+import { sepolia } from "viem/chains";
 
 const VAULT = "0xDD490eD46A6fe28e807500Bf7482b24d9077a812";
 const POOL = "0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6";
 
 const poolAbi = [
   { type: "function", name: "participants", inputs: [], outputs: [{ type: "address[]" }], stateMutability: "view" },
-  { type: "function", name: "getDraw", inputs: [{ name: "drawId", type: "uint256" }], outputs: [{ components: [ { name: "seedIndex", type: "bytes32" }, { name: "amount", type: "bytes32" }, { name: "winner", type: "address" }, { name: "fulfilled", type: "bool" }, { name: "claimed", type: "bool" } ], type: "tuple" }], stateMutability: "view" },
-  { type: "function", name: "seedIndexOf", inputs: [{ name: "drawId", type: "uint256" }], outputs: [{ type: "bytes32" }], stateMutability: "view" },
-  { type: "function", name: "draw", inputs: [], outputs: [{ name: "drawId", type: "uint256" }], stateMutability: "nonpayable" },
-  { type: "function", name: "fulfillWinner", inputs: [{ name: "drawId", type: "uint256" }, { name: "winnerIndex", type: "uint8" }, { name: "decryptionProof", type: "bytes" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "claim", inputs: [{ name: "drawId", type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
+  {
+    type: "function",
+    name: "getDraw",
+    inputs: [{ name: "drawId", type: "uint256" }],
+    outputs: [
+      {
+        components: [
+          { name: "seedIndex", type: "bytes32" },
+          { name: "amount", type: "bytes32" },
+          { name: "winner", type: "address" },
+          { name: "fulfilled", type: "bool" },
+          { name: "claimed", type: "bool" },
+        ],
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "seedIndexOf",
+    inputs: [{ name: "drawId", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "draw",
+    inputs: [],
+    outputs: [{ name: "drawId", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "fulfillWinner",
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "winnerIndex", type: "uint8" },
+      { name: "decryptionProof", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "claim",
+    inputs: [{ name: "drawId", type: "uint256" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
 ];
 
 const env = Object.fromEntries(
-  fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").trim().split(/\r?\n/).map(l => l.split("=")),
+  fs
+    .readFileSync(new URL("../../.env.local", import.meta.url), "utf8")
+    .trim()
+    .split(/\r?\n/)
+    .map(l => l.split("=")),
 );
 const pkRaw = env.PRIVATE_KEY || env.DEPLOYER_PRIVATE_KEY;
 const account = privateKeyToAccount(pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`);
@@ -80,7 +129,9 @@ async function userDecrypt(handles, contractAddress) {
 
 try {
   // ── 1. run a draw (permissionless; cooldown only applies after the first) ──
-  const receipt = await txHash("draw", () => walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "draw", gas: 15_000_000n }));
+  const receipt = await txHash("draw", () =>
+    walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "draw", gas: 15_000_000n }),
+  );
 
   // WinnerSeeded(uint256 indexed drawId, bytes32 seedIndex) — topic1 = drawId
   let drawId;
@@ -92,7 +143,12 @@ try {
   if (!drawId) throw new Error("could not read drawId");
   console.log("DRAW #", drawId);
 
-  const draw = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
+  const draw = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
   console.log("pre-reveal:", { fulfilled: draw.fulfilled, winner: draw.winner, seedIndex: draw.seedIndex });
 
   // ── 2. public decryption via Zama relayer (KMS-signed proof) ──────────────
@@ -103,17 +159,46 @@ try {
 
   // ── 3. fulfillWinner verifies the KMS proof on-chain ──────────────────────
   await txHash("fulfillWinner", () =>
-    walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "fulfillWinner", args: [BigInt(drawId), winnerIndex, pub.decryptionProof], gas: 3_000_000n }),
+    walletClient.writeContract({
+      address: POOL,
+      abi: poolAbi,
+      functionName: "fulfillWinner",
+      args: [BigInt(drawId), winnerIndex, pub.decryptionProof],
+      gas: 3_000_000n,
+    }),
   );
-  const revealed = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
-  console.log("post-reveal winner:", revealed.winner, "| iAmWinner:", revealed.winner.toLowerCase() === account.address.toLowerCase());
+  const revealed = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
+  console.log(
+    "post-reveal winner:",
+    revealed.winner,
+    "| iAmWinner:",
+    revealed.winner.toLowerCase() === account.address.toLowerCase(),
+  );
 
   if (revealed.winner.toLowerCase() !== account.address.toLowerCase()) {
     console.log("not the winner this draw — reveal path verified, skipping claim");
   } else {
     // ── 4. claim (transfers the encrypted pot, granting decryption rights) ──
-    await txHash("claim", () => walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "claim", args: [BigInt(drawId)], gas: 3_000_000n }));
-    const claimed = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
+    await txHash("claim", () =>
+      walletClient.writeContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "claim",
+        args: [BigInt(drawId)],
+        gas: 3_000_000n,
+      }),
+    );
+    const claimed = await publicClient.readContract({
+      address: POOL,
+      abi: poolAbi,
+      functionName: "getDraw",
+      args: [BigInt(drawId)],
+    });
     console.log("claimed:", claimed.claimed);
 
     // ── 5. winner-only decryption of the prize amount ───────────────────────
