@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 
-export function MetallicVaultMark() {
+export function MetallicVaultMark({ symbol = "cUSDT" }: { symbol?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reducedMotion = Boolean(useReducedMotion());
 
@@ -85,7 +85,7 @@ export function MetallicVaultMark() {
       context.font = `700 ${Math.max(18, size * 0.19)}px Geist, sans-serif`;
       context.textAlign = "center";
       context.textBaseline = "middle";
-      context.fillText("USDC", 0, 2);
+      context.fillText(symbol.toUpperCase(), 0, 2);
       context.font = `500 ${Math.max(8, size * 0.045)}px Geist Mono, monospace`;
       context.fillStyle = "rgba(255,255,255,0.78)";
       context.fillText("SEALED VALUE", 0, size * 0.27);
@@ -98,12 +98,12 @@ export function MetallicVaultMark() {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, symbol]);
 
   return (
     <div
       className="relative h-72 w-full overflow-hidden rounded-[1.75rem] border border-border/80 bg-background/70 sm:h-80"
-      aria-label="Animated metallic USDC vault seal"
+      aria-label={`Animated metallic ${symbol.toUpperCase()} vault seal`}
       role="img"
     >
       <canvas ref={canvasRef} className="h-full w-full" />

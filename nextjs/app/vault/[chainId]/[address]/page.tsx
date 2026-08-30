@@ -169,7 +169,7 @@ export default function VaultDetailPage() {
         </section>
         <div className="flex flex-col gap-6">
           <div className="glass-panel relative rounded-3xl">
-            <MetallicVaultMark />
+            <MetallicVaultMark symbol={symbol} />
             <div className="mt-6">
               <FheOrb decrypted={energized} compact variant="vault" />
             </div>

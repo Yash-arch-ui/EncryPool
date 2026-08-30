@@ -90,7 +90,7 @@ export function useEncryptedBalance() {
 
   const decryptedBalance = useMemo(() => {
     if (decryptedValue === undefined || typeof decryptedValue !== "bigint") return undefined;
-    return formatEncryptedAmount(decryptedValue, Number(decimals ?? 6), (symbol as string) ?? "USDC");
+    return formatEncryptedAmount(decryptedValue, Number(decimals ?? 6), (symbol as string) ?? "cUSDT");
   }, [decryptedValue, decimals, symbol]);
 
   const refreshPosition = useCallback(async () => {
@@ -156,7 +156,7 @@ export function useEncryptedBalance() {
     refreshPosition,
     submitEncryptedAmount,
     isSubmitting: encrypt.isPending,
-    symbol: (symbol as string) ?? "USDC",
+    symbol: (symbol as string) ?? "cUSDT",
     decimals: Number(decimals ?? 6),
     tokenAddress,
   };

@@ -40,7 +40,7 @@ export function useVaultList() {
 
   return useMemo(() => {
     if (!vault) return [];
-    const label = (symbol as string) || "USDC";
+    const label = (symbol as string) || "cUSDT";
     const count = typeof participantCount === "bigint" ? Number(participantCount) : 0;
     return [
       {
