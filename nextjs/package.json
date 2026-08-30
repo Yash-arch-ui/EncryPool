@@ -35,6 +35,7 @@
     "next": "15.5.24",
     "next-nprogress-bar": "~2.3.13",
     "next-themes": "~0.3.0",
+    "ogl": "^1.0.11",
     "react": "~19.0.0",
     "react-dom": "~19.0.0",
     "react-hot-toast": "~2.4.0",
