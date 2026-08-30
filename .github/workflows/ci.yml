@@ -38,22 +38,22 @@ jobs:
 
       # dependencies/ is gitignored; soldeer resolves deps from foundry.toml.
       - name: Install contract deps
-        working-directory: packages/foundry
+        working-directory: contracts
         run: forge soldeer install
 
       - name: forge build
-        working-directory: packages/foundry
+        working-directory: contracts
         run: forge build --sizes
 
       - name: forge test
-        working-directory: packages/foundry
+        working-directory: contracts
         run: forge test -vv
 
       - name: frontend typecheck
-        run: pnpm --filter ./packages/nextjs check-types
+        run: pnpm --filter ./nextjs check-types
 
       - name: frontend lint
-        run: pnpm --filter ./packages/nextjs lint
+        run: pnpm --filter ./nextjs lint
 
       - name: frontend build
         env:
@@ -61,7 +61,7 @@ jobs:
           # exercises the build pipeline — a stub is enough since no RPC call
           # actually happens during `next build`.
           NEXT_PUBLIC_ALCHEMY_API_KEY: ci-stub
-        run: pnpm --filter ./packages/nextjs build
+        run: pnpm --filter ./nextjs build
 
       - name: prettier check
         run: pnpm exec prettier --check .
