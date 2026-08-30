@@ -27,7 +27,7 @@ export default function LaunchPage() {
   };
 
   return (
-    <main className="relative flex min-h-[calc(100svh-73px)] items-center justify-center overflow-hidden">
+    <main className="relative min-h-[calc(100svh-73px)] overflow-hidden">
       <GlowCursor
         color="#67E8F9"
         secondaryColor="#A78BFA"
@@ -49,8 +49,7 @@ export default function LaunchPage() {
         className="absolute inset-0"
       >
         <div className="cipher-grid absolute inset-0 opacity-40" />
-        <div className="absolute inset-x-0 top-0 h-[50vh] bg-gradient-to-b from-primary/[0.06] via-primary/[0.02] to-transparent" />
-        <section className="relative mx-auto flex w-full max-w-xl flex-col items-center gap-9 px-5 py-24 text-center">
+        <section className="absolute left-1/2 top-1/2 z-10 flex w-full max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-9 px-5 py-24 text-center">
           <span className="flex size-16 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary shadow-[0_0_36px_color-mix(in_srgb,var(--primary)_30%,transparent)]">
             <LockKeyhole />
           </span>
