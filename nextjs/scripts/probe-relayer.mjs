@@ -1,5 +1,5 @@
-import { RelayerNode } from "@zama-fhe/sdk/node";
 import { SepoliaConfig } from "@zama-fhe/sdk";
+import { RelayerNode } from "@zama-fhe/sdk/node";
 
 async function main() {
   const relayer = new RelayerNode({
