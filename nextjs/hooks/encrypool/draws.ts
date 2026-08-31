@@ -1,6 +1,6 @@
 "use client";
 
-import { type Address, createPublicClient, http } from "viem";
+import { type Address, type Log, createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import { poolDeployment } from "~~/hooks/encrypool/shared";
 
@@ -21,6 +21,37 @@ export function makeSepoliaClient() {
 }
 
 /**
+ * Thirdweb and most public RPCs cap `eth_getLogs` at a 10 000-block window.
+ * This helper splits a wide range into chunks and concatenates the results.
+ */
+const LOG_RANGE_LIMIT = 9_990;
+
+async function getLogsChunked(
+  client: ReturnType<typeof makeSepoliaClient>,
+  params: {
+    address: `0x${string}`;
+    event?: Parameters<typeof client.getLogs>[0]["event"];
+    events?: Parameters<typeof client.getLogs>[0]["events"];
+    fromBlock: bigint;
+    toBlock: bigint | "latest";
+  },
+): Promise<Log[]> {
+  const latest = await client.getBlockNumber();
+  const to = params.toBlock === "latest" ? latest : params.toBlock;
+  const all: Log[] = [];
+  let from = params.fromBlock;
+
+  while (from <= to) {
+    const chunkEnd = from + BigInt(LOG_RANGE_LIMIT) > to ? to : from + BigInt(LOG_RANGE_LIMIT);
+    const logs = await client.getLogs({ ...params, fromBlock: from, toBlock: chunkEnd });
+    all.push(...logs);
+    from = chunkEnd + 1n;
+  }
+
+  return all;
+}
+
+/**
  * Enumerate all draws of ConfidentialPrizePool. The pool exposes no public
  * counter, so draw ids come from WinnerSeeded logs (from the deployment
  * block), then getDraw() supplies each draw's state.
@@ -30,7 +61,7 @@ export async function fetchDrawStates(): Promise<DrawState[]> {
   if (!pool) return [];
   const client = makeSepoliaClient();
 
-  const seededLogs = await client.getLogs({
+  const seededLogs = await getLogsChunked(client, {
     address: pool.address,
     event: {
       type: "event",
@@ -86,7 +117,7 @@ export async function fetchActivity(account: Address): Promise<ActivityEntry[]> 
   if (!vault) return [];
   const client = makeSepoliaClient();
 
-  const logs = await client.getLogs({
+  const logs = await getLogsChunked(client, {
     address: vault.address,
     events: [
       {
@@ -106,7 +137,6 @@ export async function fetchActivity(account: Address): Promise<ActivityEntry[]> 
         ],
       },
     ],
-    // Multi-event log fetches can't narrow indexed args; filter locally.
     fromBlock: BigInt(vault.deployedOnBlock),
     toBlock: "latest",
   });

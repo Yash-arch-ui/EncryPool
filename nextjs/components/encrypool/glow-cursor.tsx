@@ -391,7 +391,7 @@ export default function GlowCursor({
   return (
     <div
       ref={containerRef}
-      className={`relative h-full w-full overflow-hidden${className ? ` ${className}` : ""}`}
+      className={`h-full w-full overflow-hidden${className ? ` ${className}` : ""}`}
       style={style}
       {...rest}
     >

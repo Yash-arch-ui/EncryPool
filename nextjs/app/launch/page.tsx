@@ -27,7 +27,7 @@ export default function LaunchPage() {
   };
 
   return (
-    <main className="relative min-h-[calc(100svh-73px)] overflow-hidden">
+    <main className="relative h-[calc(100svh-73px)] overflow-hidden">
       <GlowCursor
         color="#67E8F9"
         secondaryColor="#A78BFA"
