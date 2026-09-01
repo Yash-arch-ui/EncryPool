@@ -90,10 +90,9 @@ export function useClaimablePrize() {
         if (!msg.includes("DrawAlreadyFulfilled")) console.warn(`reveal draw ${draw.drawId}:`, msg);
       }
     }
-    await statesQuery.refetch();
-    const fresh = await fetchDrawStates();
+    const { data: fresh } = await statesQuery.refetch();
     const iWon = Boolean(
-      address && fresh.some(s => !s.claimed && s.winner.toLowerCase() === (address as string).toLowerCase()),
+      address && (fresh ?? []).some(s => !s.claimed && s.winner.toLowerCase() === (address as string).toLowerCase()),
     );
     return { revealed, iWon };
   }, [pool, states, publicDecrypt, writeContractAsync, statesQuery, address]);

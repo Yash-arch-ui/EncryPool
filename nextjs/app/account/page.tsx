@@ -43,13 +43,17 @@ export default function AccountPage() {
       toast.error("Connect your wallet first");
       return;
     }
-    const res = await checkResult();
-    if (!claimable && !res.iWon && res.revealed === 0 && claimedByMe === null) {
-      toast.success("No pending draws to verify yet.");
-    } else if (res.revealed > 0 && !res.iWon) {
-      toast.success(`Winner revealed for ${res.revealed} draw${res.revealed > 1 ? "s" : ""} — not you this time.`);
-    } else if (emptyPotWin !== null) {
-      toast.success("You won a draw whose pot was never funded — nothing to claim from it.");
+    try {
+      const res = await checkResult();
+      if (!claimable && !res.iWon && res.revealed === 0 && claimedByMe === null) {
+        toast.success("No pending draws to verify yet.");
+      } else if (res.revealed > 0 && !res.iWon) {
+        toast.success(`Winner revealed for ${res.revealed} draw${res.revealed > 1 ? "s" : ""} — not you this time.`);
+      } else if (emptyPotWin !== null) {
+        toast.success("You won a draw whose pot was never funded — nothing to claim from it.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.slice(0, 160) : "Check result failed");
     }
   };
 
