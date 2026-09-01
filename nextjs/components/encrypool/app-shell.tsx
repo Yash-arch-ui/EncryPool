@@ -83,6 +83,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               GitHub
             </a>
+            <Link href="/faucet" className="hover:text-foreground">
+              Faucet
+            </Link>
           </div>
           <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
             <span className="size-2 rounded-full bg-secondary shadow-[0_0_12px_var(--secondary)]" />
