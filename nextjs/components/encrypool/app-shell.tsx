@@ -8,6 +8,7 @@ import { EncrypoolConnectButton } from "~~/components/encrypool/EncrypoolConnect
 
 const links = [
   ["Vaults", "/vaults"],
+  ["Draw", "/draw"],
   ["Account", "/account"],
   ["Prizes", "/prizes"],
 ];
