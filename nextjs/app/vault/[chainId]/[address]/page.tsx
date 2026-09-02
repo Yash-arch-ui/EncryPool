@@ -9,7 +9,7 @@ import { waitForTransactionReceipt } from "wagmi/actions";
 import { EncryptedBalance } from "~~/components/encrypool/encrypted-balance";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { MetallicVaultMark } from "~~/components/encrypool/metallic-vault-mark";
-import { erc7984Abi, vaultDeployment } from "~~/hooks/encrypool/shared";
+import { encrypoolChainId, erc7984Abi, poolDeployment, vaultDeployment } from "~~/hooks/encrypool/shared";
 import { formatCountdown, useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 import { useEncryptedBalance } from "~~/hooks/encrypool/useEncryptedBalance";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
@@ -25,8 +25,9 @@ export default function VaultDetailPage() {
 
   const { address, isConnected } = useAccount();
   const vault = vaultDeployment();
+  const pool = poolDeployment();
   const { nextDrawAtMs } = useDrawHistory();
-  const { refreshPosition, submitEncryptedAmount, symbol, decimals, tokenAddress } = useEncryptedBalance();
+  const { refreshPosition, submitEncryptedAmount, symbol, decimals, tokenAddress, hasPosition } = useEncryptedBalance();
 
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -46,6 +47,14 @@ export default function VaultDetailPage() {
   });
 
   const { writeContractAsync } = useWriteContract();
+
+  const { data: participantCount } = useReadContract({
+    address: pool?.address,
+    abi: pool?.abi,
+    functionName: "participantCount" as const,
+    chainId: encrypoolChainId,
+    query: { enabled: Boolean(pool) },
+  });
 
   const parsedAmount = useMemo(() => {
     try {
@@ -67,6 +76,7 @@ export default function VaultDetailPage() {
       toast.error("Enter a valid amount");
       return;
     }
+    const isFirstDeposit = !hasPosition;
     setBusy(true);
     try {
       if (mode === "deposit" && !isOperator && tokenAddress) {
@@ -87,9 +97,23 @@ export default function VaultDetailPage() {
       const res = await submitEncryptedAmount(parsedAmount, mode);
       toast.dismiss("tx");
       if (res.ok) {
-        toast.success(`${mode === "deposit" ? "Deposit" : "Withdraw"} submitted — ciphertext sealed on Sepolia`, {
-          duration: 6000,
-        });
+        if (isFirstDeposit && mode === "deposit") {
+          const nextCount = typeof participantCount === "bigint" ? Number(participantCount) + 1 : "?";
+          toast.success(
+            <span>
+              <strong>Welcome to the pool! You are registered as participant #{nextCount}!</strong>
+              <br />
+              <span style={{ fontSize: "0.85em", opacity: 0.85 }}>
+                You&apos;re now eligible for every future draw. Good luck!
+              </span>
+            </span>,
+            { duration: 10000, icon: "🎉" },
+          );
+        } else {
+          toast.success(`${mode === "deposit" ? "Deposit" : "Withdraw"} submitted — ciphertext sealed on Sepolia`, {
+            duration: 6000,
+          });
+        }
         setAmount("");
         await refreshPosition();
       } else {
@@ -113,9 +137,17 @@ export default function VaultDetailPage() {
             Encrypool {symbol.toUpperCase()} Vault
           </h1>
         </div>
-        <div className="glass-panel rounded-2xl p-4">
-          <p className="font-mono text-[10px] text-muted-foreground">NEXT DRAW</p>
-          <p className="mt-1 font-mono text-xl font-bold text-accent">{formatCountdown(nextDrawAtMs, now ?? 0)}</p>
+        <div className="flex gap-3">
+          <div className="glass-panel rounded-2xl p-4">
+            <p className="font-mono text-[10px] text-muted-foreground">PARTICIPANTS</p>
+            <p className="mt-1 font-mono text-xl font-bold">
+              {typeof participantCount === "bigint" ? participantCount.toString() : "—"}
+            </p>
+          </div>
+          <div className="glass-panel rounded-2xl p-4">
+            <p className="font-mono text-[10px] text-muted-foreground">NEXT DRAW</p>
+            <p className="mt-1 font-mono text-xl font-bold text-accent">{formatCountdown(nextDrawAtMs, now ?? 0)}</p>
+          </div>
         </div>
       </div>
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
@@ -163,7 +195,9 @@ export default function VaultDetailPage() {
               : mode === "deposit"
                 ? needsApproval
                   ? "Approve & encrypt-deposit"
-                  : "Encrypt & deposit"
+                  : hasPosition
+                    ? "Encrypt & deposit"
+                    : "Join vault"
                 : "Decrypt & withdraw"}
           </button>
         </section>
