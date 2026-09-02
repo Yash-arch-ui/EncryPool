@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LockKeyhole } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { formatCountdown, useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
@@ -27,6 +28,12 @@ export default function PrizesPage() {
             <p className="font-mono text-3xl font-bold sm:text-4xl">{formatCountdown(nextDrawAtMs, now ?? 0)}</p>
             <p className="mt-2 font-mono text-[10px] text-muted-foreground">DAYS · HRS · MIN · SEC</p>
           </div>
+          <Link
+            href="/draw"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-5 py-3 font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            Trigger a draw <ArrowRight className="size-4" />
+          </Link>
         </div>
         <FheOrb compact variant="prize" />
       </div>
