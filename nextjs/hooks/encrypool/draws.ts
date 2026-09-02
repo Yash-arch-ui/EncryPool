@@ -1,6 +1,7 @@
 "use client";
 
-import { type Address, type Log, createPublicClient, http } from "viem";
+import { type AbiEvent, type Address, createPublicClient, decodeEventLog, http } from "viem";
+import { type Log } from "viem";
 import { sepolia } from "viem/chains";
 import { poolDeployment } from "~~/hooks/encrypool/shared";
 
@@ -26,16 +27,30 @@ export function makeSepoliaClient() {
  */
 const LOG_RANGE_LIMIT = 9_990;
 
-async function getLogsChunked(
-  client: ReturnType<typeof makeSepoliaClient>,
-  params: {
-    address: `0x${string}`;
-    event?: Parameters<typeof client.getLogs>[0]["event"];
-    events?: Parameters<typeof client.getLogs>[0]["events"];
-    fromBlock: bigint;
-    toBlock: bigint | "latest";
-  },
-): Promise<Log[]> {
+type GetLogsParams =
+  | {
+      address: `0x${string}`;
+      event: AbiEvent;
+      events?: never;
+      fromBlock: bigint;
+      toBlock: bigint | "latest";
+    }
+  | {
+      address: `0x${string}`;
+      event?: never;
+      events: readonly AbiEvent[];
+      fromBlock: bigint;
+      toBlock: bigint | "latest";
+    }
+  | {
+      address: `0x${string}`;
+      event?: never;
+      events?: never;
+      fromBlock: bigint;
+      toBlock: bigint | "latest";
+    };
+
+async function getLogsChunked(client: ReturnType<typeof makeSepoliaClient>, params: GetLogsParams): Promise<Log[]> {
   const latest = await client.getBlockNumber();
   const to = params.toBlock === "latest" ? latest : params.toBlock;
   const all: Log[] = [];
@@ -43,7 +58,7 @@ async function getLogsChunked(
 
   while (from <= to) {
     const chunkEnd = from + BigInt(LOG_RANGE_LIMIT) > to ? to : from + BigInt(LOG_RANGE_LIMIT);
-    const logs = await client.getLogs({ ...params, fromBlock: from, toBlock: chunkEnd });
+    const logs = await client.getLogs({ ...params, fromBlock: from, toBlock: chunkEnd } as any);
     all.push(...logs);
     from = chunkEnd + 1n;
   }
@@ -77,23 +92,37 @@ export async function fetchDrawStates(): Promise<DrawState[]> {
 
   if (seededLogs.length === 0) return [];
 
-  const ordered = [...seededLogs].sort((a, b) => Number(b.args.drawId) - Number(a.args.drawId));
-  const uniqueBlocks = [...new Set(ordered.map(l => l.blockNumber))];
+  const winnerSeededAbi: AbiEvent = {
+    type: "event",
+    name: "WinnerSeeded",
+    inputs: [
+      { name: "drawId", type: "uint256", indexed: true },
+      { name: "seedIndex", type: "bytes32", indexed: false },
+    ],
+  };
+
+  const decoded = seededLogs.map(log => {
+    const d = decodeEventLog({ abi: [winnerSeededAbi], data: log.data, topics: log.topics });
+    return { log, args: d.args as { drawId: bigint; seedIndex: `0x${string}` } };
+  });
+
+  const ordered = [...decoded].sort((a, b) => Number(b.args.drawId) - Number(a.args.drawId));
+  const uniqueBlocks = [...new Set(ordered.map(e => e.log.blockNumber).filter((b): b is bigint => b !== null))];
   const blocks = await Promise.all(uniqueBlocks.map(b => client.getBlock({ blockNumber: b })));
   const tsByBlock = new Map(blocks.map(b => [b.number, Number(b.timestamp) * 1000]));
 
   return Promise.all(
-    ordered.map(async log => {
+    ordered.map(async ({ log, args }) => {
       const state = await client.readContract({
         address: pool.address,
         abi: pool.abi,
         functionName: "getDraw",
-        args: [BigInt(Number(log.args.drawId))],
+        args: [args.drawId],
       });
       return {
-        drawId: Number(log.args.drawId),
-        ts: tsByBlock.get(log.blockNumber) ?? Date.now(),
-        seedIndex: log.args.seedIndex as `0x${string}`,
+        drawId: Number(args.drawId),
+        ts: (log.blockNumber !== null ? tsByBlock.get(log.blockNumber) : undefined) ?? Date.now(),
+        seedIndex: args.seedIndex,
         amount: state.amount,
         winner: state.winner,
         fulfilled: state.fulfilled,
@@ -141,23 +170,48 @@ export async function fetchActivity(account: Address): Promise<ActivityEntry[]> 
     toBlock: "latest",
   });
 
-  const mine = logs.filter(l => l.args.account?.toLowerCase() === account.toLowerCase());
+  const depositedAbi: AbiEvent = {
+    type: "event",
+    name: "Deposited",
+    inputs: [
+      { name: "account", type: "address", indexed: true },
+      { name: "shares", type: "bytes32", indexed: false },
+    ],
+  };
+  const withdrawnAbi: AbiEvent = {
+    type: "event",
+    name: "Withdrawn",
+    inputs: [
+      { name: "account", type: "address", indexed: true },
+      { name: "shares", type: "bytes32", indexed: false },
+    ],
+  };
+  const eventAbis = [depositedAbi, withdrawnAbi];
 
-  const uniqueBlocks = [...new Set(logs.map(l => l.blockNumber))];
+  const decoded = logs.map(log => {
+    const d = decodeEventLog({ abi: eventAbis, data: log.data, topics: log.topics });
+    return { log, args: d.args as { account: `0x${string}` }, eventName: d.eventName };
+  });
+
+  const mine = decoded.filter(e => e.args.account.toLowerCase() === account.toLowerCase());
+
+  const uniqueBlocks = [...new Set(decoded.map(e => e.log.blockNumber).filter((b): b is bigint => b !== null))];
   const blocks = await Promise.all(uniqueBlocks.map(b => client.getBlock({ blockNumber: b })));
   const tsByBlock = new Map(blocks.map(b => [b.number, Number(b.timestamp) * 1000]));
 
   return [...mine]
-    .sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber))
+    .sort((a, b) => Number(b.log.blockNumber ?? 0n) - Number(a.log.blockNumber ?? 0n))
     .slice(0, 10)
-    .map(log => ({
-      type: log.eventName === "Deposited" ? ("Deposit" as const) : ("Withdraw" as const),
-      date: new Date(tsByBlock.get(log.blockNumber) ?? Date.now()).toLocaleDateString("en-US", {
+    .map(({ log, eventName }) => ({
+      type: (eventName === "Deposited" ? "Deposit" : "Withdraw") as "Deposit" | "Withdraw",
+      date: new Date(
+        (log.blockNumber !== null ? tsByBlock.get(log.blockNumber) : undefined) ?? Date.now(),
+      ).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       }),
       amount: "🔒 Encrypted",
-      txHash: log.transactionHash,
+      txHash: log.transactionHash ?? undefined,
     }));
 }
