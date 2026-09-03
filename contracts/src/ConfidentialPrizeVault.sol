@@ -29,6 +29,8 @@ import {EncryptedBalanceTracker} from "./EncryptedBalanceTracker.sol";
 /// import cycle (the pool's constructor references this vault's address).
 interface IParticipantRegistry {
     function registerParticipant(address account) external;
+    function participantCount() external view returns (uint256);
+    function MAX_PARTICIPANTS() external view returns (uint256);
 }
 
 contract ConfidentialPrizeVault is ZamaEthereumConfig {
@@ -52,6 +54,7 @@ contract ConfidentialPrizeVault is ZamaEthereumConfig {
     event PrizePoolSet(address indexed prizePool);
 
     error PrizePoolAlreadySet();
+    error MaxPoolFull();
 
     constructor(IERC7984 asset_) ZamaEthereumConfig() {
         asset = asset_;
@@ -114,7 +117,11 @@ contract ConfidentialPrizeVault is ZamaEthereumConfig {
         balanceTracker.update(msg.sender, credited);
 
         // First deposit registers the caller for prize-draw eligibility.
+        // Pre-check: reject if the pool is already at capacity (avoids a wasted revert
+        // after the expensive deposit FHE ops complete). The pool also enforces this
+        // defensively inside registerParticipant.
         if (address(prizePool) != address(0)) {
+            if (prizePool.participantCount() >= prizePool.MAX_PARTICIPANTS()) revert MaxPoolFull();
             prizePool.registerParticipant(msg.sender);
         }
 

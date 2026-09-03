@@ -29,6 +29,11 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
     /// advantages; PoolTogether V5 instead uses a dedicated draw manager + prize tiers.
     uint64 public constant MIN_DRAW_INTERVAL = 1 minutes;
 
+    /// @dev Hard cap on participants enforced at registration time. draw() must stay under
+    /// the FHEVM 20M HCU/tx limit; with euint64 weights the per-participant cost is
+    /// ~3.52M HCU, giving a budget for exactly 5 participants (19.36M total).
+    uint256 public constant MAX_PARTICIPANTS = 5;
+
     IERC7984 public immutable asset;
     ConfidentialPrizeVault public immutable vault;
 
@@ -52,6 +57,7 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
     error UnauthorizedCaller(address caller);
     error NoParticipants();
     error TooManyParticipants();
+    error MaxParticipantsReached();
     error DrawTooSoon();
     error DrawNotFulfilled();
     error DrawAlreadyFulfilled();
@@ -92,6 +98,7 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
     function registerParticipant(address account) external {
         if (msg.sender != address(vault)) revert UnauthorizedCaller(msg.sender);
         if (!_isParticipant[account]) {
+            if (_participants.length >= MAX_PARTICIPANTS) revert MaxParticipantsReached();
             _isParticipant[account] = true;
             _participants.push(account);
             emit ParticipantRegistered(account);
@@ -120,6 +127,12 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
     /// @notice Runs a weighted draw among all participants. Anyone may call it after the
     /// cooldown; the outcome is unbiased regardless of caller because weights and
     /// randomness never leave ciphertext form.
+    /// @dev HCU budget (20M limit on real FHEVM):
+    ///   Fixed costs:                       ~1.74M
+    ///   Per participant: computeWeight ~1.01M + weight-accum 0.16M + selection-loop ~2.35M
+    ///                =                    ~3.52M/participant
+    ///   Total for 5 participants:          ~19.36M  (under 20M)
+    ///   Total for 6 participants:          ~22.89M  (over 20M — blocked by MAX_PARTICIPANTS)
     /// @return drawId The id of the created draw (awaiting KMS-verified fulfillment).
     function draw() external returns (uint256 drawId) {
         uint256 count = _participants.length;
@@ -130,8 +143,9 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
         }
 
         // One pass: cache each participant's transiently-granted weight handle and sum.
-        euint128[] memory weights = new euint128[](count);
-        euint128 totalWeight = FHE.asEuint128(0);
+        // Weights are euint64 (see EncryptedBalanceTracker.computeWeight dev doc).
+        euint64[] memory weights = new euint64[](count);
+        euint64 totalWeight = FHE.asEuint64(0);
         for (uint256 i = 0; i < count; i++) {
             weights[i] = weightSource.computeWeight(_participants[i]);
             totalWeight = FHE.add(totalWeight, weights[i]);
@@ -143,21 +157,30 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
         // x < cumulative thresholds without division means checking
         // r * totalWeight < cum * 2^64 entirely in euint128 (products cannot wrap because
         // totalWeight fits well below 2^64 after the 30-day window cap).
-        euint128 x = FHE.mul(FHE.asEuint128(FHE.randEuint64()), totalWeight);
+        euint64 rand = FHE.randEuint64();
+        euint128 x = FHE.mul(FHE.asEuint128(rand), FHE.asEuint128(totalWeight));
         euint128 scale = FHE.asEuint128(uint128(1) << 64);
 
-        euint128 cum = FHE.asEuint128(0);
+        // Selection: walk cumulative thresholds. Maintain `threshold` (cum * scale) as
+        // euint128 across iterations to avoid re-computing the previous iteration's
+        // cum * scale mul — saves one FheMul(euint128) per iteration.
+        euint128 threshold = FHE.asEuint128(0);
+        euint64 cum = FHE.asEuint64(0);
         euint8 winnerIndex = FHE.asEuint8(0);
         for (uint256 i = 0; i < count; i++) {
-            // Intervals partition [0, totalWeight), so exactly one hits and a plain select
-            // walk needs no stickiness flag. Zero-weight accounts occupy empty intervals.
-            ebool hit = FHE.and(FHE.ge(x, FHE.mul(cum, scale)), FHE.lt(x, FHE.mul(FHE.add(cum, weights[i]), scale)));
+            // cumEnd = cum + weights[i] (euint64 — no overflow because sum <= totalWeight)
+            euint64 cumEnd = FHE.add(cum, weights[i]);
+            // thresholdHi = cumEnd * 2^64 (promote to euint128 for comparison with x)
+            euint128 thresholdHi = FHE.mul(FHE.asEuint128(cumEnd), scale);
+            // hit iff threshold <= x < thresholdHi
+            ebool hit = FHE.and(FHE.ge(x, threshold), FHE.lt(x, thresholdHi));
             winnerIndex = FHE.select(hit, FHE.asEuint8(uint8(i)), winnerIndex);
-            cum = FHE.add(cum, weights[i]);
+            threshold = thresholdHi;
+            cum = cumEnd;
         }
         // Degenerate corner: if every weight is zero (all positions emptied within the
         // same block they were created) no interval hits and participant 0 wins by
-        // default; unreachable in practice because draws respect the 1-day cooldown.
+        // default; unreachable in practice because draws respect the 1-minute cooldown.
 
         FHE.makePubliclyDecryptable(winnerIndex);
 

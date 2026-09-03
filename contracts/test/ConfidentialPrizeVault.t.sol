@@ -11,7 +11,7 @@ import {
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {ConfidentialPrizeVault} from "../src/ConfidentialPrizeVault.sol";
 import {EncryptedBalanceTracker} from "../src/EncryptedBalanceTracker.sol";
-import {euint64, euint128, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
+import {euint64, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
 
 contract TestUSDT is ERC20 {
     constructor() ERC20("Test USDT", "USDT") {
@@ -146,7 +146,7 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         uint64 elapsed = 1 hours;
         vm.warp(block.timestamp + elapsed);
 
-        euint128 weight = vault.balanceTracker().computeWeight(alice);
+        euint64 weight = vault.balanceTracker().computeWeight(alice);
         assertEq(uint256(decrypt(weight)), uint256(DEPOSIT) * elapsed);
     }
 
@@ -154,7 +154,7 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         _deposit(alice, ALICE_PK, DEPOSIT);
         vm.warp(block.timestamp + 40 days);
 
-        euint128 weight = vault.balanceTracker().computeWeight(alice);
+        euint64 weight = vault.balanceTracker().computeWeight(alice);
         assertEq(uint256(decrypt(weight)), uint256(DEPOSIT) * vault.balanceTracker().MAX_WEIGHT_WINDOW());
     }
 

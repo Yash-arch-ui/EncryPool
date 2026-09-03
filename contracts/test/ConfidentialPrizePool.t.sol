@@ -258,4 +258,48 @@ contract ConfidentialPrizePoolTest is FhevmTest {
         pool.fulfillWinner(drawId, clearIndex, buildDecryptionProof(handles, abi.encode(clearIndex)));
         assertEq(pool.getDraw(drawId).winner, alice);
     }
+
+    function test_maxParticipantsRevertsOnSixthDeposit() public {
+        // Deploy a fresh vault + pool with no participants yet.
+        ConfidentialPrizeVault v2 = new ConfidentialPrizeVault(cusdt);
+        ConfidentialPrizePool p2 = new ConfidentialPrizePool(cusdt, v2, v2.balanceTracker());
+        v2.setPrizePool(address(p2));
+
+        // Create 5 extra addresses (dave..hank) beyond alice and bob.
+        address[] memory addrs = new address[](5);
+        uint256[] memory pks = new uint256[](5);
+        pks[0] = 0xD4A1;
+        pks[1] = 0xE4B2;
+        pks[2] = 0xF4C3;
+        pks[3] = 0xA00D;
+        pks[4] = 0xB4D5;
+        for (uint256 i = 0; i < 5; i++) {
+            addrs[i] = vm.addr(pks[i]);
+            dealConfidential(cusdt, addrs[i], 10_000e6);
+            vm.startPrank(addrs[i]);
+            cusdt.setOperator(address(v2), type(uint48).max);
+            vm.stopPrank();
+        }
+
+        // 5 deposits succeed.
+        for (uint256 i = 0; i < 5; i++) {
+            (externalEuint64 enc, bytes memory proof) = encryptUint64(100e6, addrs[i], address(v2));
+            vm.prank(addrs[i]);
+            v2.deposit(enc, proof);
+        }
+        assertEq(p2.participantCount(), 5);
+
+        // 6th deposit reverts (via vault pre-check: MaxPoolFull).
+        address extra = vm.addr(0xE7A1);
+        dealConfidential(cusdt, extra, 10_000e6);
+        vm.startPrank(extra);
+        cusdt.setOperator(address(v2), type(uint48).max);
+        vm.stopPrank();
+        (externalEuint64 enc6, bytes memory proof6) = encryptUint64(100e6, extra, address(v2));
+        vm.prank(extra);
+        vm.expectRevert(ConfidentialPrizeVault.MaxPoolFull.selector);
+        v2.deposit(enc6, proof6);
+
+        assertEq(p2.participantCount(), 5); // unchanged
+    }
 }

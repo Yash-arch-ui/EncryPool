@@ -135,7 +135,14 @@ export default function VaultDetailPage() {
         setAmount("");
         await refreshPosition();
       } else {
-        toast.error(res.error ?? "Transaction failed");
+        const msg = res.error ?? "";
+        if (msg.includes("MaxPoolFull") || msg.includes("MaxParticipantsReached")) {
+          toast.error("This vault is full — maximum participants reached. Try again after the next draw.", {
+            duration: 8000,
+          });
+        } else {
+          toast.error(msg || "Transaction failed");
+        }
       }
     } catch (e) {
       toast.dismiss("tx");
