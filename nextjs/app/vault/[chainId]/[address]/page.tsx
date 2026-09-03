@@ -106,7 +106,7 @@ export default function VaultDetailPage() {
         let freshCount: bigint | undefined;
         if (res.hash && isFirstDeposit && mode === "deposit") {
           toast.loading("Waiting for confirmation…", { id: "tx", duration: Infinity });
-          await waitForTransactionReceipt(wagmiConfig, { hash: res.hash });
+          await waitForTransactionReceipt(wagmiConfig, { hash: res.hash as `0x${string}` });
           const result = await refetchParticipantCount();
           if (typeof result.data === "bigint") {
             freshCount = result.data;
