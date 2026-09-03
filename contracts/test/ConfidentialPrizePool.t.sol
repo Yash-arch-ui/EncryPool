@@ -205,7 +205,7 @@ contract ConfidentialPrizePoolTest is FhevmTest {
         _deposit(alice, ALICE_PK, 1000e6);
         pool.draw();
 
-        vm.warp(block.timestamp + 1 hours);
+        vm.warp(block.timestamp + 30 seconds);
         vm.prank(bob);
         vm.expectRevert(ConfidentialPrizePool.DrawTooSoon.selector);
         pool.draw();
