@@ -54,7 +54,7 @@ export default function DrawPage() {
         address: pool.address,
         abi: pool.abi,
         functionName: "draw",
-        gas: 3_000_000n,
+        gas: 8_000_000n,
       });
       toast.loading("Waiting for confirmation…", { id: "draw", duration: Infinity });
       const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: tx });
@@ -74,7 +74,7 @@ export default function DrawPage() {
     } catch (e) {
       toast.dismiss("draw");
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("DrawNotReady")) {
+      if (msg.includes("DrawTooSoon")) {
         toast.error("Draw not ready — cooldown hasn't cleared yet.", { duration: 5000 });
       } else if (msg.includes("NoParticipants")) {
         toast.error("No participants registered yet — nothing to draw for.", { duration: 5000 });

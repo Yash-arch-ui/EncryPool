@@ -10,7 +10,7 @@ import type { ContractDeployment } from "~~/utils/contract";
 
 const REMOTE = {
   11155111: {
-    address: "0xDD490eD46A6fe28e807500Bf7482b24d9077a812",
+    address: "0x657c784067C0761a32eA399d12132f30Ebf5C714",
     abi: [
       {
         type: "constructor",
@@ -247,7 +247,7 @@ const REMOTE = {
         inputs: [],
       },
     ],
-    deployedOnBlock: 11561689,
+    deployedOnBlock: 11628702,
   },
 } as const;
 

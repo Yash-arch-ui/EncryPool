@@ -25,7 +25,7 @@ export type DrawHistory = {
   refetch: () => void;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 60 * 1000; // matches MIN_DRAW_INTERVAL = 1 minutes
 
 function formatDrawDate(ms: number): string {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -34,8 +34,8 @@ function formatDrawDate(ms: number): string {
 /**
  * Real draw history from ConfidentialPrizePool (Sepolia). Prize amounts stay
  * "🔒 Encrypted": the amount handle is decryptable by the winner alone.
- * Also exposes the public draw clock: MIN_DRAW_INTERVAL is 1 day, so
- * nextDrawAtMs = lastDrawBlock.timestamp + 1 day.
+ * Also exposes the public draw clock: MIN_DRAW_INTERVAL is 1 minute, so
+ * nextDrawAtMs = lastDrawBlock.timestamp + 1 minute.
  */
 export function useDrawHistory(): DrawHistory {
   const pool = poolDeployment();

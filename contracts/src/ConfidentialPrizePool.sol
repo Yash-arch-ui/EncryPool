@@ -27,7 +27,7 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
 
     /// @dev Permissionless draws need a cooldown so nobody can grind draws for timing
     /// advantages; PoolTogether V5 instead uses a dedicated draw manager + prize tiers.
-    uint64 public constant MIN_DRAW_INTERVAL = 1 days;
+    uint64 public constant MIN_DRAW_INTERVAL = 1 minutes;
 
     IERC7984 public immutable asset;
     ConfidentialPrizeVault public immutable vault;
