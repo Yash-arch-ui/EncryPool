@@ -185,8 +185,15 @@ export default function DrawPage() {
           )}
         </div>
 
-        <div className="flex min-h-0 items-center justify-center">
+        <div className="flex flex-col items-center gap-8">
           <FheOrb decrypted={drawn} compact variant="prize" />
+          <div className="glass-panel rounded-2xl p-6 text-center">
+            <p className="font-mono text-sm font-bold text-accent">NEXT DRAW IN</p>
+            <p className="mt-3 font-mono text-4xl font-bold sm:text-5xl">
+              {noPreviousDraws ? (hasParticipants ? "Ready" : "—") : countdown}
+            </p>
+            <p className="mt-2 font-mono text-xs text-muted-foreground">DAYS · HRS · MIN · SEC</p>
+          </div>
         </div>
       </div>
     </main>
