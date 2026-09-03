@@ -36,8 +36,9 @@ export default function DrawPage() {
     return () => clearInterval(id);
   }, []);
 
-  const eligible = nextDrawAtMs !== null && now !== null && now >= nextDrawAtMs;
   const hasParticipants = typeof participantCount === "bigint" && participantCount > 0n;
+  const noPreviousDraws = nextDrawAtMs === null;
+  const eligible = noPreviousDraws ? hasParticipants : nextDrawAtMs !== null && now !== null && now >= nextDrawAtMs;
   const canDraw = eligible && hasParticipants && !busy && !drawn;
   const countdown = formatCountdown(nextDrawAtMs, now ?? 0);
 
@@ -100,7 +101,9 @@ export default function DrawPage() {
             <div className="mt-8">
               <div className="glass-panel rounded-2xl p-6">
                 <p className="font-mono text-[10px] text-muted-foreground">NEXT DRAW IN</p>
-                <p className="mt-2 font-mono text-3xl font-bold sm:text-4xl">{countdown}</p>
+                <p className="mt-2 font-mono text-3xl font-bold sm:text-4xl">
+                  {noPreviousDraws ? (hasParticipants ? "Ready now" : "Waiting for participants") : countdown}
+                </p>
                 <p className="mt-2 font-mono text-[10px] text-muted-foreground">DAYS · HRS · MIN · SEC</p>
                 <div className="mt-5 h-px bg-gradient-to-r from-secondary/70 to-transparent" />
                 <div className="mt-5 flex items-center gap-3 text-sm text-muted-foreground">
@@ -121,10 +124,17 @@ export default function DrawPage() {
                 ) : !hasParticipants ? (
                   "No participants yet"
                 ) : !eligible ? (
-                  <>
-                    <Flame className="size-5" />
-                    Cooldown active — {countdown}
-                  </>
+                  noPreviousDraws ? (
+                    <>
+                      <Flame className="size-5" />
+                      Waiting for participants
+                    </>
+                  ) : (
+                    <>
+                      <Flame className="size-5" />
+                      Cooldown active — {countdown}
+                    </>
+                  )
                 ) : (
                   <>
                     <Flame className="size-5" />

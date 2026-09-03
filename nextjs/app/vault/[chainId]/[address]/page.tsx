@@ -48,13 +48,19 @@ export default function VaultDetailPage() {
 
   const { writeContractAsync } = useWriteContract();
 
-  const { data: participantCount } = useReadContract({
+  const { data: participantCount, refetch: refetchParticipantCount } = useReadContract({
     address: pool?.address,
     abi: pool?.abi,
     functionName: "participantCount" as const,
     chainId: encrypoolChainId,
     query: { enabled: Boolean(pool) },
   });
+  const [latestCount, setLatestCount] = useState<bigint | undefined>(
+    typeof participantCount === "bigint" ? participantCount : undefined,
+  );
+  useEffect(() => {
+    if (typeof participantCount === "bigint") setLatestCount(participantCount);
+  }, [participantCount]);
 
   const parsedAmount = useMemo(() => {
     try {
@@ -97,8 +103,20 @@ export default function VaultDetailPage() {
       const res = await submitEncryptedAmount(parsedAmount, mode);
       toast.dismiss("tx");
       if (res.ok) {
+        let freshCount: bigint | undefined;
+        if (res.hash && isFirstDeposit && mode === "deposit") {
+          toast.loading("Waiting for confirmation…", { id: "tx", duration: Infinity });
+          await waitForTransactionReceipt(wagmiConfig, { hash: res.hash });
+          const result = await refetchParticipantCount();
+          if (typeof result.data === "bigint") {
+            freshCount = result.data;
+            setLatestCount(freshCount);
+          }
+          toast.dismiss("tx");
+        }
         if (isFirstDeposit && mode === "deposit") {
-          const nextCount = typeof participantCount === "bigint" ? Number(participantCount) + 1 : "?";
+          const count = freshCount ?? (typeof latestCount === "bigint" ? latestCount : undefined);
+          const nextCount = count !== undefined ? Number(count) + 1 : "?";
           toast.success(
             <span>
               <strong>Welcome to the pool! You are registered as participant #{nextCount}!</strong>
@@ -141,7 +159,7 @@ export default function VaultDetailPage() {
           <div className="glass-panel rounded-2xl p-4">
             <p className="font-mono text-[10px] text-muted-foreground">PARTICIPANTS</p>
             <p className="mt-1 font-mono text-xl font-bold">
-              {typeof participantCount === "bigint" ? participantCount.toString() : "—"}
+              {typeof latestCount === "bigint" ? latestCount.toString() : "—"}
             </p>
           </div>
           <div className="glass-panel rounded-2xl p-4">
