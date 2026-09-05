@@ -29,7 +29,7 @@ export default function PrizesPage() {
   const fulfilledDraws = draws.filter(d => d.fulfilled);
 
   return (
-    <main className="mx-auto min-h-[85vh] max-w-6xl px-5 py-12 lg:px-8">
+    <main className="min-h-[85vh] px-5 py-12 sm:px-8 lg:px-12">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h1 className="font-mono text-sm font-bold tracking-[0.25em] text-foreground/80 uppercase">Prizes</h1>
