@@ -10,6 +10,7 @@ import {
 } from "@openzeppelin/confidential-contracts/token/ERC7984/extensions/ERC7984ERC20Wrapper.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {ConfidentialPrizeVault} from "../src/ConfidentialPrizeVault.sol";
+import {ConfidentialPrizePool} from "../src/ConfidentialPrizePool.sol";
 import {EncryptedBalanceTracker} from "../src/EncryptedBalanceTracker.sol";
 import {euint64, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
 
@@ -37,6 +38,7 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
     TestUSDT internal usdt;
     TestCUSDT internal cusdt;
     ConfidentialPrizeVault internal vault;
+    ConfidentialPrizePool internal pool;
 
     uint256 internal constant ALICE_PK = 0xA11CE;
     uint256 internal constant BOB_PK = 0xB0B00;
@@ -51,6 +53,8 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         usdt = new TestUSDT();
         cusdt = new TestCUSDT(IERC20(address(usdt)));
         vault = new ConfidentialPrizeVault(cusdt);
+        pool = new ConfidentialPrizePool(cusdt, vault, vault.balanceTracker());
+        vault.setPrizePool(address(pool));
 
         alice = vm.addr(ALICE_PK);
         bob = vm.addr(BOB_PK);
@@ -146,7 +150,10 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         uint64 elapsed = 1 hours;
         vm.warp(block.timestamp + elapsed);
 
-        euint64 weight = vault.balanceTracker().computeWeight(alice);
+        // The tracker only allows the pool to pull weights.
+        EncryptedBalanceTracker t = vault.balanceTracker();
+        vm.prank(address(pool));
+        euint64 weight = t.computeWeight(alice);
         assertEq(uint256(decrypt(weight)), uint256(DEPOSIT) * elapsed);
     }
 
@@ -154,8 +161,10 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         _deposit(alice, ALICE_PK, DEPOSIT);
         vm.warp(block.timestamp + 40 days);
 
-        euint64 weight = vault.balanceTracker().computeWeight(alice);
-        assertEq(uint256(decrypt(weight)), uint256(DEPOSIT) * vault.balanceTracker().MAX_WEIGHT_WINDOW());
+        EncryptedBalanceTracker t = vault.balanceTracker();
+        vm.prank(address(pool));
+        euint64 weight = t.computeWeight(alice);
+        assertEq(uint256(decrypt(weight)), uint256(DEPOSIT) * t.MAX_WEIGHT_WINDOW());
     }
 
     function test_earlierDepositorEarnsHigherWeightForSameAmount() public {
@@ -164,8 +173,11 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         _deposit(bob, BOB_PK, DEPOSIT);
         vm.warp(block.timestamp + 100);
 
-        uint256 weightAlice = uint256(decrypt(vault.balanceTracker().computeWeight(alice)));
-        uint256 weightBob = uint256(decrypt(vault.balanceTracker().computeWeight(bob)));
+        EncryptedBalanceTracker t = vault.balanceTracker();
+        vm.startPrank(address(pool));
+        uint256 weightAlice = uint256(decrypt(t.computeWeight(alice)));
+        uint256 weightBob = uint256(decrypt(t.computeWeight(bob)));
+        vm.stopPrank();
         assertEq(weightAlice, uint256(DEPOSIT) * 200);
         assertEq(weightBob, uint256(DEPOSIT) * 100);
         assertGt(weightAlice, weightBob);
