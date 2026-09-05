@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${pathname.startsWith(href) ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${pathname.startsWith(href) ? "text-foreground shadow-[0_0_12px_color-mix(in_srgb,var(--primary)_20%,transparent)]" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {label}
               </Link>

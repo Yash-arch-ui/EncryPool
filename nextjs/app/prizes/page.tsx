@@ -32,116 +32,86 @@ export default function PrizesPage() {
     <main className="min-h-[85vh] px-5 py-12 sm:px-8 lg:px-12">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="font-mono text-sm font-bold tracking-[0.25em] text-foreground/80 uppercase">Prizes</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Prizes</h1>
         <EncrypoolConnectButton />
       </div>
 
-      <div className="mt-8 border-t border-white/15 pt-8">
+      <div className="mt-8 border-t border-white/10 pt-8">
         {/* ── Grand Prize Hero ──────────────────────────────────────── */}
-        <div className="glass-panel grid overflow-hidden rounded-xl border border-white/20 sm:grid-cols-[1fr_auto]">
-          <div className="p-8 sm:p-10">
-            <span className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 font-mono text-[10px] font-bold tracking-wider text-primary uppercase">
-              Grand Prize
-            </span>
-            <div className="mt-5 flex items-center gap-4">
-              <Image src="/images/lock-icon.svg" alt="Encrypted lock" width={48} height={48} className="shrink-0" />
-              <span className="text-xl font-medium text-muted-foreground">Encrypted</span>
+        <div className="glass-heavy relative overflow-hidden rounded-2xl sm:grid sm:grid-cols-[1fr_auto]">
+          {/* Left: Grand Prize */}
+          <div className="relative z-10 p-8 sm:p-10">
+            <p className="text-xs font-bold tracking-[0.2em] text-primary/80 uppercase">Grand Prize</p>
+            <div className="mt-6 flex items-center gap-4">
+              <Image src="/images/lock-icon.svg" alt="" width={48} height={48} className="shrink-0" />
+              <p className="text-lg text-muted-foreground">Encrypted</p>
             </div>
-            <p className="mt-3 italic text-muted-foreground">
-              5 ways to win every draw. Your win probability reflects your time-weighted balance. Stay deposited and let
-              your real odds kick in. Withdraw anytime.
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground/80">
+              One winner per draw. Your odds are weighted by deposit size and time held. Prize amounts stay encrypted
+              until the winner claims. Fully on-chain, verifiable, noLoss.
             </p>
           </div>
 
-          <div className="flex flex-col justify-between border-t border-white/15 p-8 sm:border-l sm:border-t-0 sm:p-10">
-            <div>
-              <span className="inline-block rounded-full border border-secondary/40 bg-secondary/10 px-3 py-1 font-mono text-[10px] font-bold tracking-wider text-secondary uppercase">
-                Next Draw
-              </span>
-              <p className="mt-4 font-mono text-4xl font-bold tracking-tight sm:text-5xl">{countdown}</p>
+          {/* Right: Countdown */}
+          <div className="glow-coral relative flex flex-col justify-between border-t border-white/10 p-8 sm:border-l sm:border-t-0 sm:p-10">
+            <div className="relative z-10">
+              <p className="text-xs font-bold tracking-[0.25em] text-muted-foreground/60 uppercase">Next draw</p>
+              <p className="mt-3 font-mono text-5xl font-bold tracking-tight text-foreground sm:text-6xl">
+                {countdown}
+              </p>
             </div>
-            <div className="mt-8">
-              <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">Last Awarded Draw</p>
-              <p className="mt-1 font-mono text-2xl font-bold">#{latestDraw?.drawId ?? drawCount ?? "—"}</p>
+            <div className="relative z-10 mt-10">
+              <p className="text-xs font-bold tracking-[0.25em] text-muted-foreground/60 uppercase">
+                Last awarded draw
+              </p>
+              <p className="mt-2 font-mono text-3xl font-bold text-foreground">
+                #{latestDraw?.drawId ?? drawCount ?? "—"}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Prize Tiers ─────────────────────────────────────────────── */}
+      {/* ── Prize Structure ─────────────────────────────────────────── */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-bold tracking-tight">Prize Tiers</h2>
-        <p className="mt-2 italic text-muted-foreground">
-          Each tier has a different prize size and number of winners per draw.
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Prize Structure</h2>
+        <p className="mt-2 text-sm text-muted-foreground/70">
+          Single-tier, deposit-weighted, fully encrypted until claimed.
         </p>
 
-        <div className="glass-panel mt-6 overflow-hidden rounded-xl border border-white/20">
-          <div className="grid grid-cols-4 border-b border-white/15 px-6 py-3">
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Tier</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Prize Size</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase text-center">
-              Winners / Draw
-            </p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase text-right">
-              Total
-            </p>
-          </div>
-
-          <div className="grid grid-cols-4 border-b border-white/10 px-6 py-4">
-            <p className="font-mono text-sm font-bold text-primary">Grand Prize</p>
-            <p className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
-              <Image src="/images/lock-icon.svg" alt="" width={18} height={18} />
-              Encrypted
-            </p>
-            <p className="text-center font-mono text-sm text-muted-foreground">1</p>
-            <p className="text-right font-mono text-sm font-bold">1 winner</p>
-          </div>
-          <div className="grid grid-cols-4 border-b border-white/10 px-6 py-4 bg-foreground/[0.03]">
-            <p className="font-mono text-sm font-bold">Tier 1</p>
-            <p className="font-mono text-sm text-muted-foreground">Coming soon</p>
-            <p className="text-center font-mono text-sm text-muted-foreground">4</p>
-            <p className="text-right font-mono text-sm font-bold">4 winners</p>
-          </div>
-          <div className="grid grid-cols-4 border-b border-white/10 px-6 py-4">
-            <p className="font-mono text-sm font-bold">Tier 2</p>
-            <p className="font-mono text-sm text-muted-foreground">Coming soon</p>
-            <p className="text-center font-mono text-sm text-muted-foreground">16</p>
-            <p className="text-right font-mono text-sm font-bold">16 winners</p>
-          </div>
-          <div className="grid grid-cols-4 border-b border-white/10 px-6 py-4 bg-foreground/[0.03]">
-            <p className="font-mono text-sm font-bold">Tier 3</p>
-            <p className="font-mono text-sm text-muted-foreground">Coming soon</p>
-            <p className="text-center font-mono text-sm text-muted-foreground">64</p>
-            <p className="text-right font-mono text-sm font-bold">64 winners</p>
-          </div>
-          <div className="grid grid-cols-4 px-6 py-4">
-            <p className="font-mono text-sm font-bold">Tier 4</p>
-            <p className="font-mono text-sm text-muted-foreground">Coming soon</p>
-            <p className="text-center font-mono text-sm text-muted-foreground">256</p>
-            <p className="text-right font-mono text-sm font-bold">256 winners</p>
+        <div className="glass-heavy mt-6 rounded-2xl p-8">
+          <div className="flex items-start gap-6">
+            <Image src="/images/lock-icon.svg" alt="" width={40} height={40} className="mt-1 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-primary">Grand Prize — 1 winner per draw</p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground/80">
+                The entire accrued yield from the pool is awarded to a single randomly selected winner each draw cycle.
+                Your probability of winning is proportional to your time-weighted deposit. Larger or longer-held
+                deposits receive proportionally higher odds. The prize amount stays encrypted end-to-end — only the
+                winner can decrypt and claim it.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Leaderboard ─────────────────────────────────────────────── */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-bold tracking-tight">Leaderboard</h2>
-        <p className="mt-2 italic text-muted-foreground">
-          Score = streak × balance. Top savers get extra lives and better prize odds.
-        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Leaderboard</h2>
+        <p className="mt-2 text-sm text-muted-foreground/70">Past winners, most recent first.</p>
 
-        <div className="glass-panel mt-6 overflow-hidden rounded-xl border border-white/20">
-          <div className="grid grid-cols-[4rem_1fr_1fr_1fr_1fr] border-b border-white/15 px-6 py-3">
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">#</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">User</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Score</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Streak</p>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Lives</p>
+        <div className="glass-heavy mt-6 overflow-hidden rounded-2xl">
+          <div className="grid grid-cols-[4rem_1fr_1fr_1fr_1fr] border-b border-white/10 px-6 py-3">
+            <p className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">#</p>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">User</p>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">Score</p>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">Streak</p>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">Lives</p>
           </div>
 
           {fulfilledDraws.length === 0 ? (
-            <div className="px-6 py-8 text-center">
-              <p className="font-mono text-sm text-muted-foreground">
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground/60">
                 {isLoading ? "Reading draws from Sepolia…" : "No draws fulfilled yet."}
               </p>
             </div>
@@ -149,15 +119,15 @@ export default function PrizesPage() {
             fulfilledDraws.slice(0, 5).map((draw, i) => {
               const rank = i + 1;
               const rankBg =
-                rank === 1 ? "bg-green-500" : rank === 2 ? "bg-blue-400" : rank === 3 ? "bg-purple-400" : "bg-muted";
+                rank === 1 ? "bg-green-500" : rank === 2 ? "bg-blue-400" : rank === 3 ? "bg-purple-400" : "bg-white/10";
               const rankText = rank <= 3 ? "text-white" : "text-muted-foreground";
               const rankLabel = rank === 1 ? "1st" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : `${rank}`;
 
               return (
                 <div
                   key={draw.drawId}
-                  className={`grid grid-cols-[4rem_1fr_1fr_1fr_1fr] items-center px-6 py-4 transition-colors hover:bg-foreground/[0.02] ${
-                    i < fulfilledDraws.length - 1 ? "border-b border-white/10" : ""
+                  className={`grid grid-cols-[4rem_1fr_1fr_1fr_1fr] items-center px-6 py-4 transition-colors hover:bg-white/[0.02] ${
+                    i < fulfilledDraws.length - 1 ? "border-b border-white/5" : ""
                   }`}
                 >
                   <div className="flex items-center">
@@ -168,14 +138,14 @@ export default function PrizesPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="font-mono text-sm">
+                    <p className="font-mono text-sm text-foreground/90">
                       {draw.winnerAddress !== "—" ? shortHex(draw.winnerAddress) : "—"}
                     </p>
-                    {draw.winnerAddress !== "—" && <Trophy className="size-3 text-accent" />}
+                    {draw.winnerAddress !== "—" && <Trophy className="size-3 text-primary" />}
                   </div>
-                  <p className="font-mono text-sm font-bold">🔒</p>
-                  <p className="font-mono text-sm text-muted-foreground">0 w</p>
-                  <p className="font-mono text-sm text-muted-foreground">{draw.claimed ? "1 ♡" : "0 ♡"}</p>
+                  <p className="font-mono text-sm font-bold text-foreground/70">🔒</p>
+                  <p className="font-mono text-sm text-muted-foreground/60">0 w</p>
+                  <p className="font-mono text-sm text-muted-foreground/60">{draw.claimed ? "1 ♡" : "0 ♡"}</p>
                 </div>
               );
             })
@@ -185,10 +155,10 @@ export default function PrizesPage() {
 
       {/* ── Your Prizes ─────────────────────────────────────────────── */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-bold tracking-tight">Your Prizes</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Connect wallet to see your wins</p>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Your Prizes</h2>
+        <p className="mt-2 text-sm text-muted-foreground/70">Connect wallet to see your wins.</p>
 
-        <div className="glass-panel mt-6 overflow-hidden rounded-xl border border-white/20">
+        <div className="glass-heavy mt-6 overflow-hidden rounded-2xl">
           {isConnected ? (
             fulfilledDraws.filter(d => d.winnerAddress !== "—").length > 0 ? (
               fulfilledDraws
@@ -197,45 +167,40 @@ export default function PrizesPage() {
                 .map((draw, i, arr) => (
                   <div
                     key={draw.drawId}
-                    className={`flex items-center justify-between px-6 py-4 transition-colors hover:bg-foreground/[0.02] ${
-                      i < arr.length - 1 ? "border-b border-white/10" : ""
+                    className={`flex items-center justify-between px-6 py-4 transition-colors hover:bg-white/[0.02] ${
+                      i < arr.length - 1 ? "border-b border-white/5" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <Image src="/images/lock-icon.svg" alt="" width={20} height={20} />
                       <div>
-                        <p className="font-mono text-sm font-bold">Draw #{draw.drawId}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{draw.date}</p>
+                        <p className="text-sm font-bold text-foreground/90">Draw #{draw.drawId}</p>
+                        <p className="text-xs text-muted-foreground/60">{draw.date}</p>
                       </div>
                     </div>
-                    <span
-                      className={`rounded-full px-3 py-1 font-mono text-xs font-bold ${
-                        draw.claimed ? "bg-green-500/10 text-green-500" : "bg-accent/10 text-accent"
-                      }`}
-                    >
+                    <span className={`text-xs font-bold ${draw.claimed ? "text-[#2ec4b6]" : "text-primary/70"}`}>
                       {draw.claimed ? "CLAIMED" : "UNCLAIMED"}
                     </span>
                   </div>
                 ))
             ) : (
-              <div className="px-6 py-8 text-center">
-                <p className="font-mono text-sm text-muted-foreground">No prizes won yet. Keep saving!</p>
+              <div className="px-6 py-10 text-center">
+                <p className="text-sm text-muted-foreground/60">No prizes won yet. Keep saving!</p>
               </div>
             )
           ) : (
-            <div className="px-6 py-8 text-center">
-              <p className="font-mono text-sm text-muted-foreground">Connect wallet to view your prize history</p>
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground/60">Connect wallet to view your prize history.</p>
             </div>
           )}
         </div>
       </section>
 
       {/* ── Footer CTA ─────────────────────────────────────────────── */}
-      <div className="mt-12 border-t border-white/15 pt-8 text-center">
-        <p className="italic text-muted-foreground">Connect wallet to view your prize history</p>
+      <div className="mt-12 border-t border-white/10 pt-8 text-center">
         <Link
           href="/draw"
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-6 py-3 font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center gap-2 rounded-full bg-primary/90 px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_30px_color-mix(in_srgb,var(--primary)_20%,transparent)] transition-all hover:shadow-[0_0_40px_color-mix(in_srgb,var(--primary)_30%,transparent)]"
         >
           Go to Draw <ArrowRight className="size-4" />
         </Link>
