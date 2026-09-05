@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { useAccount } from "wagmi";
 import GlowCursor from "~~/components/encrypool/glow-cursor";
 
 export default function LaunchPage() {
-  const router = useRouter();
   const { openConnectModal } = useConnectModal();
   const { isConnected } = useAccount();
-
-  // Navigate once the wallet connects. Doing this in an effect (instead of
-  // calling router.push during render) avoids double navigation and the
-  // "cannot update a component while rendering" warning.
-  useEffect(() => {
-    if (isConnected) router.push("/vaults");
-  }, [isConnected, router]);
 
   return (
     <main className="relative h-[calc(100svh-192px)] overflow-hidden">
@@ -53,7 +44,7 @@ export default function LaunchPage() {
               Connect a wallet to enter the encrypted vaults. Balances stay sealed — only winners ever decrypt.
             </p>
           </div>
-          {!isConnected && (
+          {!isConnected ? (
             <button
               type="button"
               onClick={openConnectModal}
@@ -62,6 +53,14 @@ export default function LaunchPage() {
               USE ENCRYPOOL
               <ArrowRight className="transition-transform group-hover:translate-x-1" />
             </button>
+          ) : (
+            <Link
+              href="/vaults"
+              className="group flex w-full max-w-sm items-center justify-between gap-4 rounded-xl border border-primary/60 bg-primary px-7 py-4 font-mono text-sm font-bold tracking-widest text-primary-foreground shadow-[0_0_44px_color-mix(in_srgb,var(--primary)_34%,transparent)] transition-transform hover:-translate-y-0.5"
+            >
+              ENTER VAULTS
+              <ArrowRight className="transition-transform group-hover:translate-x-1" />
+            </Link>
           )}
           <p className="font-mono text-[10px] tracking-widest text-muted-foreground">
             SEPOLIA TESTNET · WALLET REQUIRED
