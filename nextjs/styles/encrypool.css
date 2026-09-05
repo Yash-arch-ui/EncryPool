@@ -37,6 +37,7 @@
   --animate-scanline: scanline 9s linear infinite;
   --animate-flicker: flicker 4s steps(12) infinite;
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
 }
 
 :root {
@@ -125,6 +126,15 @@
 @keyframes spinslow {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }
 

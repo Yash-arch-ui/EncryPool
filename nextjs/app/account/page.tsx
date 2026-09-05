@@ -6,6 +6,7 @@ import { ArrowDownLeft, ArrowUpRight, Gift, LockKeyhole } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
+import { DecryptionProgress } from "~~/components/encrypool/decryption-progress";
 import { EncryptedBalance } from "~~/components/encrypool/encrypted-balance";
 import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { fetchActivity } from "~~/hooks/encrypool/draws";
@@ -135,10 +136,11 @@ export default function AccountPage() {
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             Only your wallet can check and decrypt the result.
           </p>
+          <DecryptionProgress active={isRevealingPrize} />
           <button
             onClick={actionHandler}
             disabled={isChecking || isRevealingPrize}
-            className="mt-8 w-full rounded-full bg-accent px-4 py-3 font-bold text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+            className="mt-4 w-full rounded-full bg-accent px-4 py-3 font-bold text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
           >
             {isChecking ? "Checking…" : isRevealingPrize ? "Decrypting…" : actionLabel}
           </button>

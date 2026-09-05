@@ -2,20 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { DecryptionProgress } from "~~/components/encrypool/decryption-progress";
 import { useEncryptedBalance } from "~~/hooks/encrypool/use-encrypool";
 
 export function EncryptedBalance({ onDecrypt }: { onDecrypt?: (value: boolean) => void }) {
   const { encryptedBalance, decryptedBalance, canDecrypt, isDecrypting, requestDecrypt } = useEncryptedBalance();
   const [decrypted, setDecrypted] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
 
-  // Flip to revealed view the moment the user decryption resolves.
   useEffect(() => {
     if (decryptedBalance !== undefined && !decrypted) {
       setDecrypted(true);
+      setShowProgress(false);
       onDecrypt?.(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decryptedBalance]);
+
+  useEffect(() => {
+    if (!isDecrypting) setShowProgress(false);
+  }, [isDecrypting]);
 
   const toggle = () => {
     if (decrypted) {
@@ -23,6 +29,7 @@ export function EncryptedBalance({ onDecrypt }: { onDecrypt?: (value: boolean) =
       onDecrypt?.(false);
       return;
     }
+    setShowProgress(true);
     requestDecrypt();
   };
 
@@ -50,9 +57,12 @@ export function EncryptedBalance({ onDecrypt }: { onDecrypt?: (value: boolean) =
         </button>
       </div>
       <div className="mt-6 h-px bg-gradient-to-r from-secondary/70 to-transparent" />
-      <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-        Decryption exists only for this wallet session. Plaintext never touches the public chain.
-      </p>
+      <DecryptionProgress active={showProgress && isDecrypting && !decrypted} />
+      {!showProgress && (
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+          Decryption exists only for this wallet session. Plaintext never touches the public chain.
+        </p>
+      )}
     </section>
   );
 }
