@@ -29,10 +29,14 @@ export function makeSepoliaClient() {
 }
 
 /**
- * Thirdweb and most public RPCs cap `eth_getLogs` at a 10 000-block window.
- * This helper splits a wide range into chunks and concatenates the results.
+ * Blocks scanned per `eth_getLogs` request. The default Sepolia RPC (thirdweb,
+ * which viem resolves when no transport URL is given) rejects any request
+ * spanning more than 1000 blocks with a LimitExceeded error, so chunks must
+ * stay well under that — otherwise a pool that is only a few hundred blocks
+ * old renders as if it had no draws/activity. Wide ranges are split into
+ * multiple sub-1000-block windows and concatenated.
  */
-const LOG_RANGE_LIMIT = 9_990;
+const LOG_RANGE_LIMIT = 900;
 
 type GetLogsParams =
   | {

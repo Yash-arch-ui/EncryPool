@@ -53,7 +53,7 @@ contract ConfidentialPrizeVaultTest is FhevmTest {
         usdt = new TestUSDT();
         cusdt = new TestCUSDT(IERC20(address(usdt)));
         vault = new ConfidentialPrizeVault(cusdt);
-        pool = new ConfidentialPrizePool(cusdt, vault, vault.balanceTracker());
+        pool = new ConfidentialPrizePool(cusdt, vault, vault.balanceTracker(), vm.addr(0x5E4E8C));
         vault.setPrizePool(address(pool));
 
         alice = vm.addr(ALICE_PK);

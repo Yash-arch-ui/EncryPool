@@ -36,13 +36,20 @@ contract DeployConfidentialPrizeVault is Script {
 
     function run() external returns (ConfidentialPrizeVault vault, ConfidentialPrizePool prizePool) {
         IERC7984 asset;
+        address keeper;
         if (block.chainid == 11155111) {
             asset = IERC7984(SEPOLIA_CUSDT);
+            keeper = vm.envAddress("KEEPER_ADDRESS");
         } else if (block.chainid == 31337) {
+            // For local dev: default keeper to deployer if env not set.
+            try vm.envAddress("KEEPER_ADDRESS") returns (address k) {
+                keeper = k;
+            } catch {
+                keeper = msg.sender;
+            }
             vm.startBroadcast();
             LocalUSDT usdt = new LocalUSDT();
             LocalCUSDT cusdt = new LocalCUSDT(IERC20(address(usdt)));
-            // Pre-wrap a working balance for the broadcaster so the dev loop can deposit.
             usdt.approve(address(cusdt), 100_000e6);
             cusdt.wrap(msg.sender, 100_000e6);
             vm.stopBroadcast();
@@ -53,7 +60,7 @@ contract DeployConfidentialPrizeVault is Script {
 
         vm.startBroadcast();
         vault = new ConfidentialPrizeVault(asset);
-        prizePool = new ConfidentialPrizePool(asset, vault, vault.balanceTracker());
+        prizePool = new ConfidentialPrizePool(asset, vault, vault.balanceTracker(), keeper);
         vault.setPrizePool(address(prizePool));
         vm.stopBroadcast();
 
@@ -61,5 +68,6 @@ contract DeployConfidentialPrizeVault is Script {
         console.log("ConfidentialPrizeVault:", address(vault));
         console.log("ConfidentialPrizePool:", address(prizePool));
         console.log("EncryptedBalanceTracker:", address(vault.balanceTracker()));
+        console.log("keeper:", keeper);
     }
 }

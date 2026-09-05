@@ -7,6 +7,7 @@
 #
 # Env (auto-loaded from repo-root .env.local):
 #   DEPLOYER_PRIVATE_KEY (or PRIVATE_KEY)  - deployer key, 0x-prefixed
+#   KEEPER_ADDRESS                        - keeper address (required for sepolia)
 #   SEPOLIA_RPC_URL                        - Sepolia RPC (sepolia target only)
 #   ETHERSCAN_API_KEY                      - optional, enables --verify on Sepolia
 set -euo pipefail

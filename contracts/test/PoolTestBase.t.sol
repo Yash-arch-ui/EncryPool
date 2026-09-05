@@ -36,12 +36,13 @@ contract PoolTestCUSDT is ZamaEthereumConfig, ERC7984ERC20Wrapper {
 }
 
 /**
- * @dev Test helpers for the end-to-end encrypted architecture.
+ * @dev Test helpers for the deployed (intermediate) architecture: draw-time
+ *      encrypted weight snapshot, trusted-coordinator KMS fulfillment over
+ *      [seed, totalWeight, weights...], plaintext winner, 3-arg claim.
  *
- * Off-chain knowledge in tests mimics what the relayer KMS can produce:
- * individual draw-time weights are only ever obtained through test-decryption
- * of the contract's stored snapshot handles (as the KMS would see them), never
- * from contract getters.
+ *      Off-chain knowledge in tests mimics what the relayer KMS can produce:
+ *      draw-time weights are obtained by test-decryption of the contract's own
+ *      snapshot handles (as the KMS would see them), never from getters.
  */
 contract PoolTestBase is FhevmTest {
     PoolTestUSDT internal usdt;
@@ -54,6 +55,7 @@ contract PoolTestBase is FhevmTest {
     address internal bob;
     address internal carol;
     address internal sponsor;
+    address internal keeper;
     uint256 internal alicePk;
     uint256 internal bobPk;
     uint256 internal carolPk;
@@ -73,7 +75,9 @@ contract PoolTestBase is FhevmTest {
         usdt = new PoolTestUSDT();
         cusdt = new PoolTestCUSDT(IERC20(address(usdt)));
         vault = new ConfidentialPrizeVault(cusdt);
-        pool = new ConfidentialPrizePool(cusdt, vault, vault.balanceTracker());
+
+        keeper = vm.addr(0x5E4E8C);
+        pool = new ConfidentialPrizePool(cusdt, vault, vault.balanceTracker(), keeper);
         vault.setPrizePool(address(pool));
         tracker = vault.balanceTracker();
 
@@ -133,23 +137,36 @@ contract PoolTestBase is FhevmTest {
         return uint64(userDecrypt(euint64.unwrap(handle), user, contractAddress, sig));
     }
 
-    function _userDecryptBool(ebool handle, address user, uint256 pk, address contractAddress) internal returns (bool) {
-        bytes memory sig = signUserDecrypt(pk, contractAddress);
-        return userDecrypt(ebool.unwrap(handle), user, contractAddress, sig) != 0;
-    }
-
     function _balanceOf(address user, uint256 pk) internal returns (uint64) {
         return _userDecryptUint64(cusdt.confidentialBalanceOf(user), user, pk, address(cusdt));
     }
 
     // ── Draw/fulfill helpers (relayer-equivalent knowledge) ────────────────────
 
-    /// @dev Aggregate total weight, decrypted for fulfillment.
-    function _fulfill(uint256 drawId) internal {
-        euint128 twHandle = pool.getDraw(drawId).totalWeight;
-        uint128 tw = uint128(decrypt(twHandle));
-        bytes memory proof = buildDecryptionProof(euint128.unwrap(twHandle), abi.encode(tw));
-        pool.fulfillWinner(drawId, tw, proof);
+    /// @dev Fulfills like the trusted coordinator: KMS-decrypts the draw-time
+    ///      handles [seedIndex, totalWeight, w_0..w_N-1] (test-decrypt of the
+    ///      contract's own snapshot handles) and submits the batch proof.
+    function _fulfill(uint256 drawId) internal returns (uint64 revealedSeed, uint64[] memory weights) {
+        uint256 n = pool.getDraw(drawId).participantCount;
+        bytes32[] memory handles = new bytes32[](2 + n);
+        uint64[] memory clearValues = new uint64[](2 + n);
+
+        handles[0] = euint64.unwrap(pool.getDraw(drawId).seedIndex);
+        handles[1] = euint64.unwrap(pool.getDraw(drawId).totalWeight);
+        clearValues[0] = uint64(decrypt(pool.getDraw(drawId).seedIndex));
+        clearValues[1] = uint64(decrypt(pool.getDraw(drawId).totalWeight));
+
+        weights = new uint64[](n);
+        for (uint256 i = 0; i < n; i++) {
+            euint64 w = pool.drawWeightHandle(drawId, i);
+            handles[2 + i] = euint64.unwrap(w);
+            weights[i] = uint64(decrypt(w));
+            clearValues[2 + i] = weights[i];
+        }
+
+        bytes memory proof = buildDecryptionProof(handles, abi.encodePacked(clearValues));
+        pool.fulfillWinner(drawId, clearValues[0], weights, proof);
+        revealedSeed = clearValues[0];
     }
 
     /// @dev Full pipeline: fund, draw, fulfill. Returns drawId and a plaintext
@@ -162,9 +179,6 @@ contract PoolTestBase is FhevmTest {
     }
 
     /// @dev Draw and capture draw-time weights (tracker values at draw instant).
-    ///      The tracker only allows the pool to pull weights, so the test reads
-    ///      them while pranked as the pool (test-only introspection of the same
-    ///      values the contract snapshots internally).
     function _drawCapturingWeights() internal returns (uint256 drawId, uint256[] memory weights) {
         address[] memory parts = _participants();
         uint256 n = parts.length;
@@ -174,6 +188,7 @@ contract PoolTestBase is FhevmTest {
             weights[i] = uint256(decrypt(tracker.computeWeight(parts[i])));
         }
         vm.stopPrank();
+        vm.prank(keeper);
         drawId = pool.draw();
     }
 
@@ -201,8 +216,27 @@ contract PoolTestBase is FhevmTest {
         assertEq(cum, tw, "draw-time weights must sum to total");
     }
 
+    /// @dev Cumulative plaintext offset for a participant: Σ_{j<index} weight[j].
+    function _offsetOf(uint256[] memory weights, uint256 index) internal pure returns (uint64) {
+        uint64 offset = 0;
+        for (uint256 i = 0; i < index && i < weights.length; i++) {
+            offset += uint64(weights[i]);
+        }
+        return offset;
+    }
+
     function _participants() internal view returns (address[] memory) {
         return pool.participants();
+    }
+
+    /// @dev Winner address as stored by fulfillment (plaintext in this architecture).
+    function _winnerOf(uint256 drawId) internal view returns (address) {
+        return pool.getDraw(drawId).winner;
+    }
+
+    /// @dev Whether `user` won the draw (plaintext winner comparison).
+    function _won(uint256 drawId, address user) internal view returns (bool) {
+        return pool.getDraw(drawId).winner == user;
     }
 
     /// @dev Aggregate total weight decryption (relayer view).
@@ -210,15 +244,25 @@ contract PoolTestBase is FhevmTest {
         return uint128(decrypt(pool.getDraw(drawId).totalWeight));
     }
 
-    /// @dev Caller's win status via the contract's own checkResult + user decrypt.
-    function _myWinStatus(uint256 drawId, address user, uint256 pk) internal returns (bool) {
-        vm.prank(user);
-        ebool status = pool.checkResult(drawId);
-        return _userDecryptBool(status, user, pk, address(pool));
+    /// @dev Index of `user` among registered participants, or type(uint256).max.
+    function _indexOf(address user) internal view returns (uint256) {
+        address[] memory parts = _participants();
+        for (uint256 i = 0; i < parts.length; i++) {
+            if (parts[i] == user) return i;
+        }
+        return type(uint256).max;
     }
 
-    function _claim(uint256 drawId, address user) internal {
+    /// @dev Winner-side claim with the correct (index, offset), pranked as `user`.
+    function _claim(uint256 drawId, address user, uint256[] memory weights) internal {
+        uint256 index = _indexOf(user);
         vm.prank(user);
-        pool.claim(drawId);
+        pool.claim(drawId, index, _offsetOf(weights, index));
+    }
+
+    /// @dev Attempt claim as `user` with an arbitrary (index, offset); used to assert reverts.
+    function _claimRaw(uint256 drawId, address user, uint256 index, uint64 offset) internal {
+        vm.prank(user);
+        pool.claim(drawId, index, offset);
     }
 }

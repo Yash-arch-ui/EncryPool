@@ -8,6 +8,8 @@ import { poolDeployment, shortHex } from "~~/hooks/encrypool/shared";
 export type DrawRow = {
   drawId: number;
   date: string;
+  /** ms epoch of the draw block. */
+  ts: number;
   /** `0x7B3a...91F2`, or "—" while the KMS reveal is pending. */
   winnerAddress: string;
   /** Prize amounts are encrypted end-to-end — only the winner can decrypt. */
@@ -63,6 +65,7 @@ export function useDrawHistory(): DrawHistory {
     const draws: DrawRow[] = states.slice(0, 12).map(s => ({
       drawId: s.drawId,
       date: formatDrawDate(s.ts),
+      ts: s.ts,
       winnerAddress:
         s.fulfilled && s.winner && s.winner !== "0x0000000000000000000000000000000000000000" ? shortHex(s.winner) : "—",
       prizeAmount: "🔒 Encrypted",

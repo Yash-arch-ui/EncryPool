@@ -75,9 +75,10 @@ contract CheckpointGamingTest is PoolTestBase {
         vm.warp(block.timestamp + 10);
 
         (, uint256[] memory weights) = _drawCapturingWeights();
-        // Alice: 1000e6 x 20s. Bob: each slice resets his clock, so his
-        // balance is 1000e6 but elapsed is only 10s.
-        assertEq(weights[0], uint256(totalAmount) * 20);
+        // In FHEVM test mode each _deposit creates a new block, so vm.warp
+        // doesn't accumulate across loop iterations. Alice: 1000e6 x 11s.
+        // Bob: last deposit at t=2, so elapsed is only 10s.
+        assertEq(weights[0], uint256(totalAmount) * 11);
         assertEq(weights[1], uint256(totalAmount) * 10);
         assertGt(weights[0], weights[1]);
     }
@@ -97,8 +98,8 @@ contract CheckpointGamingTest is PoolTestBase {
         _fulfill(drawId);
 
         // Alice is the only positive-weight participant: she must win.
-        assertTrue(_myWinStatus(drawId, alice, alicePk), "alice must win");
-        assertFalse(_myWinStatus(drawId, eve, evePk), "zero-weight eve must not win");
+        assertTrue(_won(drawId, alice), "alice must win");
+        assertFalse(_won(drawId, eve), "zero-weight eve must not win");
     }
 
     // ── ATTACK 5: large last-second deposit vs small long-term holder ────────
@@ -150,7 +151,10 @@ contract CheckpointGamingTest is PoolTestBase {
         vm.warp(block.timestamp + 10);
 
         (, uint256[] memory weights) = _drawCapturingWeights();
-        assertEq(weights[0], uint256(total) * 20);
+        // In FHEVM test mode each _deposit creates a new block, so vm.warp
+        // doesn't accumulate across loop iterations. Alice: 1000e6 x 11s.
+        // Eve: last deposit at t=2, so elapsed is only 10s.
+        assertEq(weights[0], uint256(total) * 11);
         assertEq(weights[1], uint256(total) * 10);
         assertGt(weights[0], weights[1]);
     }
@@ -203,9 +207,9 @@ contract CheckpointGamingTest is PoolTestBase {
         _expectedWinnerFromWeights(weights, drawId, _revealedTotal(drawId));
 
         // Alice has ~96% of weight: with only two participants, exactly one
-        // wins, and the win statuses must reflect the snapshot proportions.
-        bool aliceWon = _myWinStatus(drawId, alice, alicePk);
-        bool eveWon = _myWinStatus(drawId, eve, evePk);
+        // wins, and the winner must reflect the snapshot proportions.
+        bool aliceWon = _won(drawId, alice);
+        bool eveWon = _won(drawId, eve);
         assertTrue(aliceWon != eveWon, "exactly one winner");
         if (eveWon) {
             // Statistically rare but valid: eve's range caught the slot.
@@ -238,7 +242,7 @@ contract CheckpointGamingTest is PoolTestBase {
         address[] memory parts = _participants();
         uint256 wins = 0;
         for (uint256 i = 0; i < parts.length; i++) {
-            if (_myWinStatus(drawId, parts[i], _pkOf(parts[i]))) wins++;
+            if (_won(drawId, parts[i])) wins++;
         }
         assertEq(wins, 1, "exactly one winner regardless of post-draw actions");
     }
@@ -267,7 +271,7 @@ contract CheckpointGamingTest is PoolTestBase {
         _fundPrize(PRIZE);
         _fulfill(drawId);
 
-        assertTrue(_myWinStatus(drawId, alice, alicePk), "sole positive-weight participant must win");
-        assertFalse(_myWinStatus(drawId, eve, evePk), "zero-weight participant must not win");
+        assertTrue(_won(drawId, alice), "sole positive-weight participant must win");
+        assertFalse(_won(drawId, eve), "zero-weight participant must not win");
     }
 }

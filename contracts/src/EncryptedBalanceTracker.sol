@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {FHE, euint64} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, ebool, euint64} from "@fhevm/solidity/lib/FHE.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /// @title EncryptedBalanceTracker
 /// @notice Checkpointed encrypted balance-over-time tracker. Lightweight stand-in for
-/// PoolTogether V5's TWAB Controller: instead of a continuous piecewise time-weighted
-/// average (one checkpoint per balance change, binary-searched and summed over the draw
-/// window), it keeps a single (encrypted balance, encrypted timestamp) checkpoint per
-/// account, refreshed by the vault on every deposit/withdraw. At draw time it yields an
-/// eligibility weight of balance x min(elapsed, window), evaluated fully under encryption.
+/// PoolTogether V5's TWAB Controller: it keeps a single (encrypted balance, encrypted
+/// timestamp) checkpoint per account, refreshed by the vault on every deposit/withdraw.
+/// At draw time it yields an eligibility weight of balance x min(elapsed, window),
+/// evaluated fully under encryption.
 contract EncryptedBalanceTracker is ZamaEthereumConfig {
     struct Checkpoint {
         euint64 balance;
@@ -18,19 +17,11 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
     }
 
     /// @dev Upper bound on the weight's time factor so stale checkpoints cannot dominate
-    ///      draws forever and weight products stay far from euint128 truncation.
+    /// draws forever and weight products stay far from euint128 truncation.
     uint64 public constant MAX_WEIGHT_WINDOW = 30 days;
 
     /// @dev The only address allowed to move balances (the vault owning this tracker).
     address public immutable vault;
-
-    /// @dev The only address allowed to read weights (the prize pool). This is a
-    ///      confidentiality requirement, not an access-control nicety: if anyone
-    ///      could call computeWeight for an arbitrary account, they could
-    ///      makePubliclyDecryptable the returned handle (they receive transient
-    ///      ACL) and public-decrypt the account's exact weight, from which the
-    ///      account's balance is directly computable.
-    address public weightReader;
 
     mapping(address account => Checkpoint) private _checkpoints;
 
@@ -38,15 +29,6 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
 
     constructor(address vault_) ZamaEthereumConfig() {
         vault = vault_;
-        weightReader = address(0);
-    }
-
-    /// @dev Wire-up for the vault: records which pool may read weights. Only
-    ///      callable once, by the vault, so the ACL cannot be reassigned.
-    function setWeightReader(address pool) external {
-        if (msg.sender != vault) revert UnauthorizedCaller(msg.sender);
-        if (weightReader != address(0)) revert UnauthorizedCaller(msg.sender);
-        weightReader = pool;
     }
 
     /// @notice Records a new encrypted checkpoint for `account`.
@@ -81,15 +63,8 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
     ///         tracker; the caller receives transient access so it can consume the handle
     ///         in the same transaction without ever seeing the plaintext.
     /// @dev Weights are euint64: sane testnet balances (<= ~10^6 base units) times the
-    ///      30-day cap (2_592_000 s) fit in euint64 (max ~1.8×10^19). This keeps the
-    ///      per-participant HCU cost at 596k (FheMul euint64) vs 1.69M (FheMul euint128),
-    ///      which is critical for staying under the 20M HCU/tx limit on real Sepolia.
+    ///      30-day cap (2_592_000 s) fit in euint64 (max ~1.8×10^19).
     function computeWeight(address account) external returns (euint64 weight) {
-        // Only the pool may pull weights. A permissionless computeWeight would
-        // leak balances: any caller receives transient ACL on the fresh handle
-        // and could makePubliclyDecryptable + public-decrypt it.
-        if (msg.sender != weightReader) revert UnauthorizedCaller(msg.sender);
-
         Checkpoint storage checkpoint = _checkpoints[account];
         if (!FHE.isInitialized(checkpoint.balance)) {
             return FHE.asEuint64(0);

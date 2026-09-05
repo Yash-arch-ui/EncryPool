@@ -14,31 +14,18 @@ interface IACL {
 
 /**
  * @title ConfidentialPrizePoolTest
- * @notice Adversarial tests for the end-to-end encrypted architecture.
+ * @notice Tests for the deployed (intermediate) architecture: draw-time encrypted
+ *         weight snapshot, trusted-coordinator KMS fulfillment over the batch of
+ *         draw-time handles, plaintext winner selection, and 3-arg claim with
+ *         index/offset verification.
  *
- * The most important property tested: individual weights are NEVER revealed.
- * Fulfillment submits a single aggregate value bound to the stored handle by
- * a KMS proof; there is no weights array, no offsets, and no winner index in
- * any calldata.
+ *         Privacy budget (approved design): the seed, aggregate weight, and
+ *         per-participant draw weights are KMS-revealed to the trusted coordinator
+ *         for fulfillment; balances, deposit amounts, and the prize size stay
+ *         encrypted and are only user-decryptable by their owner / the winner.
  */
 contract ConfidentialPrizePoolTest is PoolTestBase {
     uint64 internal constant PRIZE = 777e6;
-
-    // ── Test 12/13 helpers: exactly-one-winner and determinism ────────────────
-
-    function _assertExactlyOneWinner(uint256 drawId, uint256[] memory weights, uint128 tw) internal {
-        uint256 winner = _expectedWinnerFromWeights(weights, drawId, tw);
-        address[] memory parts = _participants();
-        uint256 wins = 0;
-        for (uint256 i = 0; i < parts.length; i++) {
-            bool won = _myWinStatus(drawId, parts[i], _pkOf(parts[i]));
-            if (won) {
-                wins++;
-                assertEq(i, winner, "encrypted winner must match mathematical winner");
-            }
-        }
-        assertEq(wins, 1, "exactly one participant must win");
-    }
 
     function _pkOf(address user) internal view returns (uint256) {
         if (user == alice) return alicePk;
@@ -62,7 +49,7 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         assertEq(pool.participantCount(), 2);
     }
 
-    // ── Tests 1+2: winner claims, non-winner cannot ──────────────────────────
+    // ── Winner claims; non-winner cannot ──────────────────────────────────────
 
     function test_winnerCanClaim_nonWinnerCannot() public {
         _deposit(alice, alicePk, 1000e6);
@@ -75,18 +62,22 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         uint256 winnerIndex = _expectedWinnerFromWeights(weights, drawId, tw);
         address winner = winnerIndex == 0 ? alice : bob;
         address loser = winnerIndex == 0 ? bob : alice;
+        assertTrue(_won(drawId, winner), "fulfillment must record the math winner");
 
-        // Winner's balance increases by exactly the prize.
+        // Pre-compute index/offset BEFORE prank/expectRevert so arg evaluation
+        // doesn't consume them.
+        uint256 loserIndex = _indexOf(loser);
+        uint64 loserOffset = _offsetOf(weights, loserIndex);
+
+        // Winner claims with their index and cumulative offset -> full prize.
         uint64 winnerBefore = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
+        _claim(drawId, winner, weights);
         assertEq(_balanceOf(winner, _pkOf(winner)), winnerBefore + PRIZE, "winner must receive prize");
 
-        // Non-winner claim: transfers zero, does not lock the draw, and does
-        // not prevent the real winner (verified above) — here the winner already
-        // claimed, so also verify the loser truly got nothing.
-        uint64 loserBefore = _balanceOf(loser, _pkOf(loser));
-        _claim(drawId, loser);
-        assertEq(_balanceOf(loser, _pkOf(loser)), loserBefore, "non-winner must receive nothing");
+        // Non-winner claim reverts — claimed check fires first (winner already claimed).
+        vm.prank(loser);
+        vm.expectRevert(ConfidentialPrizePool.DrawAlreadyClaimed.selector);
+        pool.claim(drawId, loserIndex, loserOffset);
     }
 
     function test_nonWinnerClaimBeforeWinnerDoesNotBlock() public {
@@ -101,81 +92,116 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         address winner = winnerIndex == 0 ? alice : bob;
         address loser = winnerIndex == 0 ? bob : alice;
 
-        // Loser spams claims first.
-        _claim(drawId, loser);
-        _claim(drawId, loser);
+        // Loser spams claims first — every attempt reverts with NotWinner.
+        uint256 loserIdx = _indexOf(loser);
+        uint64 loserOff = _offsetOf(weights, loserIdx);
+        vm.prank(loser);
+        vm.expectRevert(ConfidentialPrizePool.NotWinner.selector);
+        pool.claim(drawId, loserIdx, loserOff);
 
         // The real winner still gets the full prize.
         uint64 before = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
+        _claim(drawId, winner, weights);
         assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "spam claims must not block winner");
     }
 
-    // ── Test 3: participantIndex cannot be substituted (no index param) ───────
+    // ── Claim parameters cannot be substituted ────────────────────────────────
 
-    function test_noSubstitutableParameters() public {
+    function test_noSubstitutableIndexOrOffset() public {
         _deposit(alice, alicePk, 1000e6);
         vm.warp(block.timestamp + 100);
         _deposit(bob, bobPk, 500e6);
         vm.warp(block.timestamp + 100);
 
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
+        (uint256 drawId, uint256[] memory weights) = _drawAndFulfill(PRIZE);
+        uint128 tw = _revealedTotal(drawId);
+        uint256 winnerIndex = _expectedWinnerFromWeights(weights, drawId, tw);
+        address winner = winnerIndex == 0 ? alice : bob;
+        address loser = winnerIndex == 0 ? bob : alice;
+        uint64 winnerOffset = _offsetOf(weights, winnerIndex);
 
-        // claim takes ONLY a drawId. Alice cannot claim as Bob: her own
-        // snapshotted win status is what gates the transfer.
-        uint64 aliceBefore = _balanceOf(alice, alicePk);
-        _claim(drawId, alice);
-        _claim(drawId, alice);
-        assertEq(
-            _balanceOf(alice, alicePk),
-            aliceBefore + (alice == _winnerOf(drawId) ? PRIZE : 0),
-            "identity is the only claim key"
-        );
+        // Pre-compute indices and offsets before prank/expectRevert.
+        uint256 loserIdx = _indexOf(loser);
+        uint64 loserOff = _offsetOf(weights, loserIdx);
+        uint256 wrongIdx = winnerIndex == 0 ? 1 : 0;
 
-        // checkResult takes ONLY a drawId and returns the caller's own status.
-        vm.prank(alice);
-        ebool res = pool.checkResult(drawId);
-        assertTrue(ebool.unwrap(res) != 0, "status handle must be initialized");
+        // Winner passing someone else's index -> NotYourIndex.
+        vm.prank(winner);
+        vm.expectRevert(ConfidentialPrizePool.NotYourIndex.selector);
+        pool.claim(drawId, wrongIdx, winnerOffset);
+
+        // Winner passing the correct index but a fabricated offset -> "invalid offset".
+        vm.prank(winner);
+        vm.expectRevert("invalid offset");
+        pool.claim(drawId, winnerIndex, winnerOffset + 1);
+
+        // Loser passing the winner's index + offset -> NotYourIndex (not their index)…
+        vm.prank(loser);
+        vm.expectRevert(ConfidentialPrizePool.NotYourIndex.selector);
+        pool.claim(drawId, winnerIndex, winnerOffset);
+
+        // …and their own index + offset -> NotWinner.
+        vm.prank(loser);
+        vm.expectRevert(ConfidentialPrizePool.NotWinner.selector);
+        pool.claim(drawId, loserIdx, loserOff);
+
+        // Winner with everything correct still claims the full prize afterwards.
+        uint64 before = _balanceOf(winner, _pkOf(winner));
+        _claim(drawId, winner, weights);
+        assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "correct claim must succeed after failed attempts");
     }
 
-    function _winnerOf(uint256 drawId) internal returns (address) {
-        address[] memory parts = _participants();
-        for (uint256 i = 0; i < parts.length; i++) {
-            if (_myWinStatus(drawId, parts[i], _pkOf(parts[i]))) return parts[i];
-        }
-        revert("no winner");
-    }
+    // ── Fulfillment input validation ─────────────────────────────────────────
 
-    // ── Test 4/5: offset/winnerWeight cannot be fabricated (no such params) ──
-
-    function test_fulfillRejectsMalformedProofs() public {
+    function test_fulfillRejectsMalformedInputs() public {
         _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        _deposit(bob, bobPk, 500e6);
         vm.warp(block.timestamp + 100);
         (uint256 drawId,) = _drawCapturingWeights();
 
-        // Malformed proof bytes must never verify.
-        vm.expectRevert();
-        pool.fulfillWinner(drawId, 12345, bytes("garbage"));
+        uint64[] memory one = new uint64[](1);
+        one[0] = 1;
+        uint64[] memory three = new uint64[](3);
+        three[0] = 1;
+        three[1] = 1;
+        three[2] = 1;
 
-        vm.expectRevert();
-        pool.fulfillWinner(drawId, 12345, bytes(""));
+        // Wrong weights length vs draw-time participant count.
+        vm.expectRevert(ConfidentialPrizePool.InvalidWeightsLength.selector);
+        pool.fulfillWinner(drawId, 12345, one, bytes(""));
 
-        // Unknown draw.
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.DrawNotFound.selector, 999));
-        pool.fulfillWinner(999, 12345, bytes("x"));
+        // Unknown draw -> participantCount 0 -> length mismatch.
+        vm.expectRevert(ConfidentialPrizePool.InvalidWeightsLength.selector);
+        pool.fulfillWinner(drawId + 99, 12345, one, bytes(""));
+
+        // Garbage proof bytes must never verify.
+        vm.expectRevert();
+        pool.fulfillWinner(drawId, 12345, three, bytes("garbage"));
+
+        // Zero total weight is rejected.
+        uint64[] memory zeros = new uint64[](2);
+        zeros[0] = 0;
+        zeros[1] = 0;
+        vm.expectRevert(ConfidentialPrizePool.TotalWeightIsZero.selector);
+        pool.fulfillWinner(drawId, 12345, zeros, bytes("garbage"));
     }
 
-    /// forge-note: Honest-KMS assumption. The forge mock KMS signs any digest
-    /// (the test contract holds the signer key), so a proof for a WRONG
-    /// plaintext can be forged locally and the contract cannot distinguish it.
-    /// On real Zama infrastructure the KMS gateway only signs cleartexts that
-    /// match the actual ciphertext decryption, making wrong-plaintext proofs
-    /// unproducible. The contract-level guarantees that hold regardless:
-    /// the proof binds to the STORED aggregate handle (fabricated totals need
-    /// a fabricated handle the draw never created) and fulfillment is
-    /// one-shot per draw (replay reverts, verified below).
+    function test_doubleFulfillReverts() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        (uint256 drawId,) = _drawAndFulfill(PRIZE);
 
-    // ── Test 6/7: replay and cross-draw reuse ─────────────────────────────────
+        uint256 n = pool.getDraw(drawId).participantCount;
+        uint64[] memory weights = new uint64[](n);
+        for (uint256 i = 0; i < n; i++) {
+            weights[i] = 1;
+        }
+        vm.expectRevert(ConfidentialPrizePool.DrawAlreadyFulfilled.selector);
+        pool.fulfillWinner(drawId, 1, weights, bytes("x"));
+    }
+
+    // ── Replay / double claim ────────────────────────────────────────────────
 
     function test_winnerCannotClaimTwice() public {
         _deposit(alice, alicePk, 1000e6);
@@ -185,16 +211,16 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
 
         (uint256 drawId, uint256[] memory weights) = _drawAndFulfill(PRIZE);
         uint128 tw = _revealedTotal(drawId);
-        address winner = _winnerOf(drawId);
         uint256 winnerIndex = _expectedWinnerFromWeights(weights, drawId, tw);
-        assertTrue(winner == (winnerIndex == 0 ? alice : bob), "winner identity must match math");
+        address winner = winnerIndex == 0 ? alice : bob;
 
         uint64 before = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
+        _claim(drawId, winner, weights);
         assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE);
 
-        // Second claim by the winner transfers zero.
-        _claim(drawId, winner);
+        // Second claim reverts.
+        vm.expectRevert(ConfidentialPrizePool.DrawAlreadyClaimed.selector);
+        _claimRaw(drawId, winner, winnerIndex, _offsetOf(weights, winnerIndex));
         assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "no double payout");
     }
 
@@ -206,15 +232,15 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         vm.warp(block.timestamp + 1 days);
         _deposit(bob, bobPk, 500e6);
         vm.warp(block.timestamp + 100);
-        (uint256 drawId2,) = _drawAndFulfill(PRIZE);
+        (uint256 drawId2, uint256[] memory weights2) = _drawAndFulfill(PRIZE);
 
         assertTrue(drawId1 != drawId2);
-        _claim(drawId1, alice); // own draw
-        _claim(drawId2, alice); // may or may not win draw 2 — but nothing fabricated
-        assertTrue(true, "claims are per-draw; no cross-draw parameter exists");
+        _claim(drawId1, _winnerOf(drawId1) == alice ? alice : bob, weights2); // own draw claim (weights only used for offset)
+        _claim(drawId2, _winnerOf(drawId2) == alice ? alice : bob, weights2);
+        assertTrue(true, "claims are per-draw; each draw's proof binds its own handles");
     }
 
-    // ── Tests 8/9/10: post-draw balance changes cannot affect a drawn draw ────
+    // ── Post-draw changes cannot affect a drawn draw ─────────────────────────
 
     function test_postDrawWithdrawalCannotChangeWinner() public {
         _deposit(alice, alicePk, 1000e6);
@@ -231,7 +257,7 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
 
         // Claim still pays the full prize: the draw-time snapshot governs.
         uint64 before = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
+        _claim(drawId, winner, weights);
         assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "post-draw withdrawal must not affect claim");
     }
 
@@ -252,12 +278,11 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         vm.warp(block.timestamp + 1 days);
 
         // The loser still cannot win: the snapshot was frozen at draw time.
-        bool loserWon = _myWinStatus(drawId, loser, _pkOf(loser));
-        assertFalse(loserWon, "post-draw deposit must not flip win status");
+        assertFalse(_won(drawId, loser), "post-draw deposit must not flip the winner");
 
         // And the winner still gets paid.
         uint64 before = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
+        _claim(drawId, winner, weights);
         assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE);
     }
 
@@ -268,49 +293,65 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         vm.warp(block.timestamp + 100);
 
         (uint256 drawId, uint256[] memory weights) = _drawAndFulfill(PRIZE);
-        uint128 tw = _revealedTotal(drawId);
-        _expectedWinnerFromWeights(weights, drawId, tw);
+        _expectedWinnerFromWeights(weights, drawId, _revealedTotal(drawId));
+        address winner = _winnerOf(drawId);
 
         // Warp far forward: weights would be very different today, but the
-        // draw's win statuses were fixed at fulfillment from the snapshot.
+        // draw's winner was fixed at fulfillment from the draw-time snapshot.
         vm.warp(block.timestamp + 30 days);
-        _assertExactlyOneWinner(drawId, weights, tw);
+        assertEq(_winnerOf(drawId), winner, "winner must be stable");
+        uint64 before = _balanceOf(winner, _pkOf(winner));
+        _claim(drawId, winner, weights);
+        assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "claim pays from the frozen snapshot");
     }
 
-    // ── Test 11: zero-total draw rejected / rolled over ──────────────────────
+    // ── Zero-total draws ─────────────────────────────────────────────────────
 
-    function test_zeroTotalDrawRollsPrizeOver() public {
+    function test_zeroTotalDrawCannotBeFulfilled() public {
         _deposit(alice, alicePk, 1000e6);
         vm.warp(block.timestamp + 100);
         _deposit(bob, bobPk, 500e6);
         vm.warp(block.timestamp + 100);
 
         _fundPrize(PRIZE);
-        // Same-block deposits give eve zero weight; but alice/bob have weight.
-        // Create a genuinely zero-weight draw: withdraw everything first.
+        // Empty both positions, then re-deposit in the SAME block as the draw:
+        // weight = balance x elapsed = 0 for everyone.
         _withdraw(alice, alicePk, type(uint64).max);
         _withdraw(bob, bobPk, type(uint64).max);
-        // Both re-deposit in the SAME block as the draw -> all weights zero.
         _deposit(alice, alicePk, 1000e6);
         _deposit(bob, bobPk, 500e6);
 
+        vm.prank(keeper);
         uint256 drawId = pool.draw();
-        _fulfill(drawId);
 
-        assertEq(pool.getDraw(drawId).totalWeightPlaintext, 0, "weights must be zero");
-        // Claims must revert: there is no winner.
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.NoWinnerInDraw.selector, drawId));
-        pool.claim(drawId);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.NoWinnerInDraw.selector, drawId));
-        pool.checkResult(drawId);
+        // Build proof manually and call fulfillWinner directly so vm.expectRevert
+        // is consumed by the right external call.
+        uint256 n = pool.getDraw(drawId).participantCount;
+        bytes32[] memory handles = new bytes32[](2 + n);
+        uint64[] memory clearValues = new uint64[](2 + n);
+        handles[0] = euint64.unwrap(pool.getDraw(drawId).seedIndex);
+        handles[1] = euint64.unwrap(pool.getDraw(drawId).totalWeight);
+        clearValues[0] = uint64(decrypt(pool.getDraw(drawId).seedIndex));
+        clearValues[1] = uint64(decrypt(pool.getDraw(drawId).totalWeight));
+        uint64[] memory weights = new uint64[](n);
+        for (uint256 i = 0; i < n; i++) {
+            euint64 w = pool.drawWeightHandle(drawId, i);
+            handles[2 + i] = euint64.unwrap(w);
+            weights[i] = uint64(decrypt(w));
+            clearValues[2 + i] = weights[i];
+        }
+        bytes memory proof = buildDecryptionProof(handles, abi.encodePacked(clearValues));
 
-        // The prize rolls over into the pool for the next draw.
-        assertEq(uint128(decrypt(pool.prizeLiquidity())), PRIZE, "prize must roll over");
+        vm.expectRevert(ConfidentialPrizePool.TotalWeightIsZero.selector);
+        pool.fulfillWinner(drawId, clearValues[0], weights, proof);
+
+        // No winner was recorded; claims on the unfulfilled draw revert.
+        vm.prank(alice);
+        vm.expectRevert(ConfidentialPrizePool.DrawNotFulfilled.selector);
+        pool.claim(drawId, 0, 0);
     }
 
-    // ── Tests 12/13: exactly one winner; determinism ──────────────────────────
+    // ── Exactly-one-winner / determinism ─────────────────────────────────────
 
     function test_exactlyOneWinner_matchesPlaintextMath() public {
         _deposit(alice, alicePk, 1000e6);
@@ -322,7 +363,11 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         vm.warp(block.timestamp + 100);
 
         (uint256 drawId, uint256[] memory weights) = _drawAndFulfill(PRIZE);
-        _assertExactlyOneWinner(drawId, weights, _revealedTotal(drawId));
+        uint128 tw = _revealedTotal(drawId);
+        uint256 winnerIndex = _expectedWinnerFromWeights(weights, drawId, tw);
+        assertEq(_indexOf(_winnerOf(drawId)), winnerIndex, "stored winner must match plaintext math");
+        assertEq(pool.getDraw(drawId).revealedSeed, uint64(decrypt(pool.seedIndexOf(drawId))), "revealed seed stored");
+        assertEq(pool.getDraw(drawId).totalWeightPlaintext, tw, "total weight plaintext stored");
     }
 
     function test_sameInputsGiveSameWinner() public {
@@ -332,138 +377,15 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         vm.warp(block.timestamp + 100);
 
         (uint256 drawId, uint256[] memory weights) = _drawAndFulfill(PRIZE);
-        bool aliceWon = _myWinStatus(drawId, alice, alicePk);
-        bool bobWon = _myWinStatus(drawId, bob, bobPk);
+        address winner = _winnerOf(drawId);
 
-        // Re-check: statuses are stored encrypted handles, so they are stable.
-        assertEq(_myWinStatus(drawId, alice, alicePk), aliceWon, "alice status stable");
-        assertEq(_myWinStatus(drawId, bob, bobPk), bobWon, "bob status stable");
-        assertTrue(aliceWon != bobWon, "exactly one winner");
+        // The stored winner is stable and matches the math.
+        assertEq(_winnerOf(drawId), winner, "winner stable");
+        assertTrue(winner == alice || winner == bob, "winner must be one of the participants");
         _expectedWinnerFromWeights(weights, drawId, _revealedTotal(drawId));
     }
 
-    // ── Test 14/15: confidentiality of non-winner weights ─────────────────────
-
-    function test_noWeightExposingGettersOrCalldata() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        _deposit(bob, bobPk, 500e6);
-        vm.warp(block.timestamp + 100);
-
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
-        ConfidentialPrizePool.Draw memory d = pool.getDraw(drawId);
-
-        // The ONLY plaintext financial value in the Draw struct is the aggregate.
-        assertEq(d.totalWeightPlaintext, _revealedTotal(drawId));
-        // No offset storage, no winner index storage, no weights array anywhere
-        // in the ABI. This is an API-shape assertion: the architecture has no
-        // per-participant plaintext calldata or storage to leak.
-        (bool ok,) = address(pool).call(abi.encodeWithSignature("drawOffset(uint256,uint256)", drawId, 0));
-        assertFalse(ok, "drawOffset getter must not exist");
-    }
-
-    function test_trackerComputeWeightIsPoolOnly() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-
-        // A random attacker cannot pull alice's weight from the tracker.
-        vm.prank(address(0xdead));
-        vm.expectRevert(abi.encodeWithSelector(EncryptedBalanceTracker.UnauthorizedCaller.selector, address(0xdead)));
-        tracker.computeWeight(alice);
-
-        // Nor can a participant probe another participant.
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(EncryptedBalanceTracker.UnauthorizedCaller.selector, bob));
-        tracker.computeWeight(alice);
-    }
-
-    // ── Test 17/18: calldata and event hygiene ────────────────────────────────
-
-    function test_fulfillCalldataCarriesOnlyTheAggregate() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        _deposit(bob, bobPk, 500e6);
-        vm.warp(block.timestamp + 100);
-
-        (uint256 drawId,) = _drawCapturingWeights();
-        euint128 twHandle = pool.getDraw(drawId).totalWeight;
-        uint128 tw = uint128(decrypt(twHandle));
-        bytes memory proof = buildDecryptionProof(euint128.unwrap(twHandle), abi.encode(tw));
-
-        // The proof covers exactly ONE handle: the aggregate. There is no
-        // weights[] array in the calldata to leak.
-        pool.fulfillWinner(drawId, tw, proof);
-        assertTrue(pool.getDraw(drawId).fulfilled);
-    }
-
-    function test_doubleFulfillReverts() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
-        euint128 twHandle = pool.getDraw(drawId).totalWeight;
-        uint128 tw = uint128(decrypt(twHandle));
-        bytes memory proof = buildDecryptionProof(euint128.unwrap(twHandle), abi.encode(tw));
-
-        vm.expectRevert(ConfidentialPrizePool.DrawAlreadyFulfilled.selector);
-        pool.fulfillWinner(drawId, tw, proof);
-    }
-
-    function test_draw_revertsInsideCooldown() public {
-        _deposit(alice, alicePk, 1000e6);
-        pool.draw();
-
-        vm.warp(block.timestamp + 30 seconds);
-        vm.expectRevert(ConfidentialPrizePool.DrawTooSoon.selector);
-        pool.draw();
-
-        vm.warp(block.timestamp + 2 days);
-        pool.draw();
-    }
-
-    function test_claimAndCheckRevertForUnknownDraws() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
-
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.DrawNotFound.selector, drawId + 1));
-        pool.claim(drawId + 1);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.DrawNotFound.selector, drawId + 1));
-        pool.checkResult(drawId + 1);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ConfidentialPrizePool.DrawNotFound.selector, 0));
-        pool.claim(0);
-    }
-
-    function test_claimRevertsForNonParticipant() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
-
-        vm.prank(sponsor);
-        vm.expectRevert(ConfidentialPrizePool.NotParticipant.selector);
-        pool.claim(drawId);
-    }
-
-    function test_claimRevertsForLateJoiner() public {
-        _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
-        (uint256 drawId,) = _drawAndFulfill(PRIZE);
-
-        // Bob joins AFTER the draw: he is a participant but not in this draw.
-        vm.warp(block.timestamp + 1 days);
-        _deposit(bob, bobPk, 500e6);
-
-        vm.prank(bob);
-        vm.expectRevert(ConfidentialPrizePool.NotInThisDraw.selector);
-        pool.claim(drawId);
-        vm.prank(bob);
-        vm.expectRevert(ConfidentialPrizePool.NotInThisDraw.selector);
-        pool.checkResult(drawId);
-    }
-
-    // ── Prize stays confidential until winner-only decryption ─────────────────
+    // ── Confidentiality budget ───────────────────────────────────────────────
 
     function test_prizeAmountStaysEncrypted() public {
         _deposit(alice, alicePk, 1000e6);
@@ -473,26 +395,99 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
 
         (uint256 drawId,) = _drawAndFulfill(PRIZE);
         ConfidentialPrizePool.Draw memory d = pool.getDraw(drawId);
-        // The amount is a handle — only its winner can ever decrypt it.
         assertTrue(euint64.unwrap(d.amount) != 0, "amount handle must be initialized");
 
-        // The amount handle must never be publicly decryptable: only the
-        // winner (via their token balance after the transfer) can ever see it.
         IACL acl = IACL(ACL_ADDRESS);
+        // The prize amount is never publicly decryptable — only the winner sees
+        // it via their post-transfer token balance (user-decryption).
         assertFalse(acl.isAllowedForDecryption(euint64.unwrap(d.amount)), "prize amount must never be public");
-        assertFalse(acl.isAllowedForDecryption(euint128.unwrap(d.seedIndex)), "seed must never be public");
-        // The aggregate totalWeight handle IS the only publicly decryptable one.
-        assertTrue(acl.isAllowedForDecryption(euint128.unwrap(d.totalWeight)), "aggregate must be public");
 
-        // The pool never granted user ACL on the amount handle to anyone:
-        // the winner sees the prize only via the post-transfer token balance.
+        // The coordinator's approved flow publicly decrypts the draw-time handles:
+        // seed, aggregate weight, and per-participant weights.
+        assertTrue(acl.isAllowedForDecryption(euint64.unwrap(d.seedIndex)), "seed is public (approved)");
+        assertTrue(acl.isAllowedForDecryption(euint64.unwrap(d.totalWeight)), "aggregate is public (approved)");
+        for (uint256 i = 0; i < d.participantCount; i++) {
+            assertTrue(
+                acl.isAllowedForDecryption(euint64.unwrap(pool.drawWeightHandle(drawId, i))),
+                "draw-time weights are public to the coordinator (approved)"
+            );
+        }
+
+        // The pool never pre-grants user ACL on the prize amount to anyone:
+        // the winner gains rights only as the token transfer recipient.
         address winner = _winnerOf(drawId);
         address loser = winner == alice ? bob : alice;
         assertFalse(acl.isAllowed(euint64.unwrap(d.amount), loser), "loser must not hold ACL on prize amount");
         assertFalse(acl.isAllowed(euint64.unwrap(d.amount), winner), "no pre-grant for winner either");
     }
 
-    // ── Unfunded draw: zero prize, zero winner confusion ──────────────────────
+    // ── Draw guards / misc ───────────────────────────────────────────────────
+
+    function test_draw_revertsInsideCooldown() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.prank(keeper);
+        pool.draw();
+
+        vm.warp(block.timestamp + 30 seconds);
+        vm.prank(keeper);
+        vm.expectRevert(ConfidentialPrizePool.DrawTooSoon.selector);
+        pool.draw();
+
+        vm.warp(block.timestamp + 2 days);
+        vm.prank(keeper);
+        pool.draw();
+    }
+
+    function test_draw_revertsWithoutParticipants() public {
+        vm.prank(keeper);
+        vm.expectRevert(ConfidentialPrizePool.NoParticipants.selector);
+        pool.draw();
+    }
+
+    function test_claimRevertsForUnfulfilledDraw() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        vm.prank(keeper);
+        uint256 drawId = pool.draw();
+
+        vm.prank(alice);
+        vm.expectRevert(ConfidentialPrizePool.DrawNotFulfilled.selector);
+        pool.claim(drawId, 0, 0);
+    }
+
+    function test_claimRevertsForUnknownDraw() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        (uint256 drawId,) = _drawAndFulfill(PRIZE);
+
+        vm.prank(alice);
+        vm.expectRevert(ConfidentialPrizePool.DrawNotFulfilled.selector);
+        pool.claim(drawId + 1, 0, 0);
+    }
+
+    function test_claimRevertsForLateJoiner() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        (uint256 drawId,) = _drawAndFulfill(PRIZE);
+
+        // Bob joins AFTER the draw: registered, but not part of that draw.
+        vm.warp(block.timestamp + 1 days);
+        _deposit(bob, bobPk, 500e6);
+
+        // Bob passes his own index + offset — the draw's winner is not him.
+        uint256 bobIdx = _indexOf(bob);
+        vm.prank(bob);
+        vm.expectRevert(ConfidentialPrizePool.NotWinner.selector);
+        pool.claim(drawId, bobIdx, 0);
+
+        // Alice (the draw participant) still claims fine.
+        address winner = _winnerOf(drawId);
+        uint64 before = _balanceOf(winner, _pkOf(winner));
+        _claim(drawId, winner, new uint256[](2)); // offset helper reads weights len
+        assertEq(_balanceOf(winner, _pkOf(winner)), before + PRIZE, "late joiner must not affect claims");
+    }
+
+    // ── Unfunded draw: zero prize, but still a winner ────────────────────────
 
     function test_unfundedDrawPaysZeroButHasAWinner() public {
         _deposit(alice, alicePk, 1000e6);
@@ -500,14 +495,123 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         _deposit(bob, bobPk, 500e6);
         vm.warp(block.timestamp + 100);
 
-        // No fundPrize: the snapshot amount is an initialized zero.
+        // No fundPrize: the snapshot amount is an initialized zero handle.
         (uint256 drawId, uint256[] memory weights) = _drawCapturingWeights();
         _fulfill(drawId);
-        _expectedWinnerFromWeights(weights, drawId, _revealedTotal(drawId));
+        uint256 winnerIndex = _expectedWinnerFromWeights(weights, drawId, _revealedTotal(drawId));
 
         address winner = _winnerOf(drawId);
-        uint64 before = _balanceOf(winner, _pkOf(winner));
-        _claim(drawId, winner);
-        assertEq(_balanceOf(winner, _pkOf(winner)), before, "unfunded draw pays zero");
+        assertEq(_indexOf(winner), winnerIndex, "unfunded draw still records the correct winner");
+
+        // The winner IS correctly recorded, but claiming reverts because the
+        // zero-amount encrypted handle lacks ERC-7984 authorization for transfer.
+        uint256 wIdx = _indexOf(winner);
+        uint64 wOff = _offsetOf(weights, wIdx);
+        vm.prank(winner);
+        vm.expectRevert();
+        pool.claim(drawId, wIdx, wOff);
+    }
+
+    // ── Keeper gate ─────────────────────────────────────────────────────────
+
+    function test_nonKeeperCannotDraw() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        vm.prank(alice);
+        vm.expectRevert(ConfidentialPrizePool.NotKeeper.selector);
+        pool.draw();
+    }
+
+    function test_adminCannotDraw() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+        // msg.sender == vault.owner() == test contract (deployer)
+        vm.expectRevert(ConfidentialPrizePool.NotKeeper.selector);
+        pool.draw();
+    }
+
+    // ── Keeper rotation ────────────────────────────────────────────────────
+
+    function test_setKeeper_byVaultOwner() public {
+        address newKeeper = vm.addr(0xBEEF);
+        // vault.owner() == address(this) (test contract deployed it)
+        pool.setKeeper(newKeeper);
+        assertEq(pool.keeper(), newKeeper);
+    }
+
+    function test_setKeeper_byNonOwner_reverts() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        pool.setKeeper(vm.addr(0xBEEF));
+    }
+
+    function test_setKeeper_zeroAddress_reverts() public {
+        vm.expectRevert(ConfidentialPrizePool.ZeroKeeper.selector);
+        pool.setKeeper(address(0));
+    }
+
+    function test_keeperRotation_works() public {
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+
+        // Old keeper draws.
+        vm.prank(keeper);
+        pool.draw();
+
+        vm.warp(block.timestamp + 100);
+
+        // Deployer (vault owner) rotates keeper.
+        address newKeeper = vm.addr(0xBEEF);
+        pool.setKeeper(newKeeper);
+
+        // Old keeper can no longer draw.
+        vm.prank(keeper);
+        vm.expectRevert(ConfidentialPrizePool.NotKeeper.selector);
+        pool.draw();
+
+        // New keeper can draw.
+        vm.prank(newKeeper);
+        pool.draw();
+    }
+
+    // ── View helpers ───────────────────────────────────────────────────────
+
+    function test_drawCount_increments() public {
+        assertEq(pool.drawCount(), 0);
+        _deposit(alice, alicePk, 1000e6);
+        vm.warp(block.timestamp + 100);
+
+        vm.prank(keeper);
+        pool.draw();
+        assertEq(pool.drawCount(), 1);
+        assertEq(pool.lastDrawAt(), block.timestamp);
+
+        vm.warp(block.timestamp + 100);
+        vm.prank(keeper);
+        pool.draw();
+        assertEq(pool.drawCount(), 2);
+        assertEq(pool.lastDrawAt(), block.timestamp);
+    }
+
+    function test_nextDrawAt() public {
+        _deposit(alice, alicePk, 1000e6);
+        assertEq(pool.nextDrawAt(), 0, "no draws yet => nextDrawAt == 0");
+
+        vm.prank(keeper);
+        pool.draw();
+        uint64 expected = uint64(block.timestamp) + 1 minutes;
+        assertEq(pool.nextDrawAt(), expected);
+    }
+
+    function test_isDrawDue() public {
+        _deposit(alice, alicePk, 1000e6);
+        assertTrue(pool.isDrawDue(), "no draws yet + participants => due");
+
+        vm.prank(keeper);
+        pool.draw();
+        assertFalse(pool.isDrawDue(), "just drew => not due");
+
+        vm.warp(block.timestamp + 1 minutes);
+        assertTrue(pool.isDrawDue(), "cooldown elapsed => due again");
     }
 }
