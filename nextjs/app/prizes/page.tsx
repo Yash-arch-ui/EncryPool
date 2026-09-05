@@ -44,7 +44,7 @@ export default function PrizesPage() {
               Grand Prize
             </span>
             <div className="mt-5 flex items-center gap-4">
-              <Image src="/images/lock-icon.svg" alt="Encrypted lock" width={72} height={72} className="shrink-0" />
+              <Image src="/images/lock-icon.svg" alt="Encrypted lock" width={48} height={48} className="shrink-0" />
               <span className="text-xl font-medium text-muted-foreground">Encrypted</span>
             </div>
             <p className="mt-3 italic text-muted-foreground">
