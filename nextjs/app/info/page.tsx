@@ -95,7 +95,7 @@ const sections: FaqSection[] = [
 function FaqCard({ item }: { item: FaqItem }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl transition-colors hover:border-border">
+    <div className="glass-panel rounded-2xl transition-colors hover:border-border/80">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-3 px-6 py-5 text-left"
@@ -121,27 +121,27 @@ export default function InfoPage() {
       <div className="absolute inset-0 z-0">
         <GradientWaves
           horizonColor="#0a0e1a"
-          waveColor="#2a1060"
+          waveColor="#6b3fa0"
           crestColor="#ff6b4a"
-          speed={0.25}
-          amplitude={1.8}
-          waveScale={0.5}
-          waveRatio={1.4}
-          swell={28}
-          turbulence={15}
-          tilt={1.05}
-          zoom={0.9}
-          height={4.5}
-          fogDepth={22}
+          speed={0.3}
+          amplitude={2.2}
+          waveScale={0.6}
+          waveRatio={1.6}
+          swell={35}
+          turbulence={20}
+          tilt={1.15}
+          zoom={1.0}
+          height={5.0}
+          fogDepth={30}
           detail="medium"
-          brightness={0.7}
-          opacity={0.65}
+          brightness={1.2}
+          opacity={0.9}
           mouseInteraction
-          parallaxStrength={0.3}
+          parallaxStrength={0.5}
           grain
-          grainIntensity={0.04}
+          grainIntensity={0.03}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background/95" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/30 to-background/80" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl px-5 py-20 lg:px-8">
