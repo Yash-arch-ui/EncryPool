@@ -217,7 +217,7 @@ export default function DrawPage() {
   const isIdle = phase === "idle";
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-14 lg:px-8">
+    <main className="h-full px-5 py-14 lg:px-8">
       <div className="grid items-center gap-8 lg:grid-cols-[.85fr_1.15fr]">
         <div>
           <p className="font-mono text-xs font-bold text-accent">PROTOCOL ACTION</p>

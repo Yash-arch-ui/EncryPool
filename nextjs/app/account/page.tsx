@@ -77,7 +77,7 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
+    <main className="h-full px-5 py-14 lg:px-8">
       <p className="font-mono text-xs font-bold text-primary">PRIVATE ACCOUNT</p>
       <h1 className="mt-3 text-balance font-serif text-5xl font-bold sm:text-7xl">Your Confidential corner.</h1>
       <div className="mt-10 grid items-center gap-8 lg:grid-cols-2">

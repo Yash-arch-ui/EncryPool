@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/75 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
           <Link href="/" className="flex items-center gap-3 font-serif text-xl font-bold">
@@ -67,34 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         )}
       </header>
-      {children}
-      <footer className="border-t border-border/70 bg-card/40">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 md:flex-row md:items-center md:justify-between lg:px-8">
-          <p className="font-serif text-xl font-bold">Encrypool</p>
-          <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-            {links.map(([label, href]) => (
-              <Link key={href} href={href} className="hover:text-foreground">
-                {label}
-              </Link>
-            ))}
-            <a
-              href="https://github.com/Yash-arch-ui/EncryPool"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-foreground"
-            >
-              GitHub
-            </a>
-            <Link href="/faucet" className="hover:text-foreground">
-              Faucet
-            </Link>
-          </div>
-          <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-            <span className="size-2 rounded-full bg-secondary shadow-[0_0_12px_var(--secondary)]" />
-            FHEVM · SEPOLIA
-          </p>
-        </div>
-      </footer>
+      <main className="flex-1">{children}</main>
     </div>
   );
 }

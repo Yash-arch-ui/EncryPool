@@ -9,7 +9,7 @@ import { useVaultList } from "~~/hooks/encrypool/use-encrypool";
 export default function VaultsPage() {
   const vaults = useVaultList();
   return (
-    <main className="relative mx-auto flex h-[calc(100svh-192px)] max-w-7xl flex-col overflow-hidden px-5 py-6 lg:px-8">
+    <main className="relative flex h-full flex-col overflow-hidden px-5 py-6 lg:px-8">
       <div className="cipher-grid pointer-events-none absolute inset-x-0 top-0 h-96 opacity-30" />
       <div className="relative grid min-h-0 flex-1 items-center gap-6 lg:grid-cols-[1.15fr_.85fr]">
         <div>
