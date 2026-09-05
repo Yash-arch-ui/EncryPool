@@ -9,8 +9,8 @@ import { bytesToHex, createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 
-const POOL = "0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6";
-const VAULT = "0xDD490eD46A6fe28e807500Bf7482b24d9077a812";
+const POOL = "0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43";
+const VAULT = "0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4";
 
 const tokenAbi = [
   {

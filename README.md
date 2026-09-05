@@ -12,8 +12,9 @@ A confidential no-loss prize savings dApp for the [Zama Developer Program](https
 
 Deployed on Sepolia (Wrappers-Registry cUSDTMock `0x4E7B06D78965594eB5EF5414c357ca21E1554491`):
 
-- ConfidentialPrizeVault [`0xDD490eD46A6fe28e807500Bf7482b24d9077a812`](https://sepolia.etherscan.io/address/0xDD490eD46A6fe28e807500Bf7482b24d9077a812)
-- ConfidentialPrizePool [`0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6`](https://sepolia.etherscan.io/address/0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6)
+- ConfidentialPrizeVault [`0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4`](https://sepolia.etherscan.io/address/0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4)
+- ConfidentialPrizePool [`0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43`](https://sepolia.etherscan.io/address/0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43)
+- EncryptedBalanceTracker [`0x4829763b3a48DD05df968EE73914E57226Baa389`](https://sepolia.etherscan.io/address/0x4829763b3a48DD05df968EE73914E57226Baa389)
 
 Redeploy with `pnpm deploy:vault:sepolia` or `pnpm deploy:vault:localhost`.
 

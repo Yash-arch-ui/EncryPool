@@ -7,7 +7,8 @@
  *   4. user-decrypt positionOf() handle (keypair + EIP-712 credential)
  *   5. withdraw part, re-decrypt
  *
- * Env: PRIVATE_KEY / DEPLOYER_PRIVATE_KEY from repo .env.local
+ * Env: PK (optional, defaults to PRIVATE_KEY / DEPLOYER_PRIVATE_KEY from repo
+ * .env.local) and DEPOSIT (optional base-unit amount, default 25_000_000).
  */
 import { SepoliaConfig } from "@zama-fhe/sdk";
 import { RelayerNode } from "@zama-fhe/sdk/node";
@@ -16,8 +17,8 @@ import { bytesToHex, createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 
-const VAULT = "0xDD490eD46A6fe28e807500Bf7482b24d9077a812";
-const POOL = "0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6";
+const VAULT = "0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4";
+const POOL = "0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43";
 
 const vaultAbi = [
   { type: "function", name: "asset", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
@@ -133,7 +134,7 @@ const env = Object.fromEntries(
     .split(/\r?\n/)
     .map(l => l.split("=")),
 );
-const pkRaw = env.PRIVATE_KEY || env.DEPLOYER_PRIVATE_KEY;
+const pkRaw = process.env.PK || env.PRIVATE_KEY || env.DEPLOYER_PRIVATE_KEY;
 if (!pkRaw) throw new Error("no private key in .env.local");
 const account = privateKeyToAccount(pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`);
 
@@ -306,7 +307,7 @@ try {
     console.log("position BEFORE:", before);
   }
 
-  const DEPOSIT = 25_000_000n; // 25 tokens @ 6 decimals
+  const DEPOSIT = BigInt(process.env.DEPOSIT || 25_000_000); // 25 tokens @ 6 decimals default
   const enc = await relayer.encrypt({
     values: [{ value: DEPOSIT, type: "euint64" }],
     contractAddress: VAULT,

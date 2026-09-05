@@ -16,7 +16,7 @@ async function main() {
   try {
     const enc = await relayer.encrypt({
       values: [{ value: 1n, type: "euint64" }],
-      contractAddress: "0xDD490eD46A6fe28e807500Bf7482b24d9077a812",
+      contractAddress: "0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4",
       userAddress: "0x3884d7c9bA39C00CE28b5F8bD26102Cd057fB9E4",
     });
     console.log("ENCRYPT OK", enc.handles[0]?.slice(0, 20));

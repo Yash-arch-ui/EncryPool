@@ -1,6 +1,9 @@
 /* Draw → KMS reveal → fulfillWinner → claim → winner-only prize decryption,
  * against LIVE Sepolia. Mirrors useClaimablePrize() in the UI.
  * Run AFTER e2e-sepolia-flow.mjs has registered a participant.
+ *
+ * NEW ARCHITECTURE: fulfillWinner now takes a batch KMS proof covering
+ * [seed, totalWeight, weight_0, ..., weight_N-1].
  */
 import { SepoliaConfig } from "@zama-fhe/sdk";
 import { RelayerNode } from "@zama-fhe/sdk/node";
@@ -9,8 +12,8 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 
-const VAULT = "0xDD490eD46A6fe28e807500Bf7482b24d9077a812";
-const POOL = "0xc866E74cA50f84e7986CE8c92755D50Bd13AB2B6";
+const VAULT = "0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4";
+const POOL = "0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43";
 
 const poolAbi = [
   { type: "function", name: "participants", inputs: [], outputs: [{ type: "address[]" }], stateMutability: "view" },
@@ -22,10 +25,14 @@ const poolAbi = [
       {
         components: [
           { name: "seedIndex", type: "bytes32" },
+          { name: "totalWeight", type: "bytes32" },
           { name: "amount", type: "bytes32" },
           { name: "winner", type: "address" },
           { name: "fulfilled", type: "bool" },
           { name: "claimed", type: "bool" },
+          { name: "revealedSeed", type: "uint64" },
+          { name: "totalWeightPlaintext", type: "uint64" },
+          { name: "participantCount", type: "uint256" },
         ],
         type: "tuple",
       },
@@ -41,6 +48,23 @@ const poolAbi = [
   },
   {
     type: "function",
+    name: "participantWeight",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "drawWeightHandle",
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "participantIndex", type: "uint256" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "draw",
     inputs: [],
     outputs: [{ name: "drawId", type: "uint256" }],
@@ -51,7 +75,8 @@ const poolAbi = [
     name: "fulfillWinner",
     inputs: [
       { name: "drawId", type: "uint256" },
-      { name: "winnerIndex", type: "uint8" },
+      { name: "revealedSeed", type: "uint64" },
+      { name: "weights", type: "uint64[]" },
       { name: "decryptionProof", type: "bytes" },
     ],
     outputs: [],
@@ -60,7 +85,11 @@ const poolAbi = [
   {
     type: "function",
     name: "claim",
-    inputs: [{ name: "drawId", type: "uint256" }],
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "participantIndex", type: "uint256" },
+      { name: "offsetPlaintext", type: "uint256" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -151,20 +180,55 @@ try {
   });
   console.log("pre-reveal:", { fulfilled: draw.fulfilled, winner: draw.winner, seedIndex: draw.seedIndex });
 
-  // ── 2. public decryption via Zama relayer (KMS-signed proof) ──────────────
-  console.log("requesting public decryption of seedIndex…");
-  const pub = await relayer.publicDecrypt([draw.seedIndex]);
-  const winnerIndex = Number(pub.clearValues[draw.seedIndex]);
-  console.log("KMS cleartext winnerIndex:", winnerIndex, "| proof:", `${pub.decryptionProof.slice(0, 20)}…`);
+  // ── 2. get the DRAW-TIME weight handles (snapshotted by draw()) ───────────
+  // draw.participantCount is fixed at draw time; later registrants are excluded.
+  const participants = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "participants",
+  });
+  console.log("participants:", participants, "| draw-time count:", Number(draw.participantCount));
 
-  // ── 3. fulfillWinner verifies the KMS proof on-chain ──────────────────────
+  const drawTimeParticipants = participants.slice(0, Number(draw.participantCount));
+  const weightHandles = [];
+  for (let i = 0; i < drawTimeParticipants.length; i++) {
+    const handle = await publicClient.readContract({
+      address: POOL,
+      abi: poolAbi,
+      functionName: "drawWeightHandle",
+      args: [BigInt(drawId), BigInt(i)],
+    });
+    weightHandles.push(handle);
+  }
+
+  // ── 3. public decryption via Zama relayer (KMS-signed batch proof) ────────
+  // Build handles array: [seed, totalWeight, drawWeight_0, ..., drawWeight_N-1]
+  const allHandles = [draw.seedIndex, draw.totalWeight, ...weightHandles];
+  console.log(`requesting public decryption of ${allHandles.length} handles…`);
+  const pub = await relayer.publicDecrypt(allHandles);
+
+  // KMS clearValues are decimal strings of uint64 values. The seed is a full
+  // uint64 and routinely exceeds Number.MAX_SAFE_INTEGER (2^53), so converting
+  // it with Number() silently corrupts it (observed: 12728321933452978465 →
+  // 12728321933452978176), which then breaks the on-chain KMS proof check with
+  // InvalidKMSSignatures. Keep the whole path on BigInt/string.
+  const revealedSeed = BigInt(pub.clearValues[draw.seedIndex]);
+  const totalWeight = BigInt(pub.clearValues[draw.totalWeight]);
+  const weights = weightHandles.map(h => BigInt(pub.clearValues[h]));
+  console.log("KMS cleartext:", {
+    revealedSeed: revealedSeed.toString(),
+    totalWeight: totalWeight.toString(),
+    weights: weights.map(w => w.toString()),
+  });
+
+  // ── 4. fulfillWinner verifies the KMS proof on-chain ──────────────────────
   await txHash("fulfillWinner", () =>
     walletClient.writeContract({
       address: POOL,
       abi: poolAbi,
       functionName: "fulfillWinner",
-      args: [BigInt(drawId), winnerIndex, pub.decryptionProof],
-      gas: 3_000_000n,
+      args: [BigInt(drawId), revealedSeed, weights, pub.decryptionProof],
+      gas: 5_000_000n,
     }),
   );
   const revealed = await publicClient.readContract({
@@ -183,13 +247,24 @@ try {
   if (revealed.winner.toLowerCase() !== account.address.toLowerCase()) {
     console.log("not the winner this draw — reveal path verified, skipping claim");
   } else {
-    // ── 4. claim (transfers the encrypted pot, granting decryption rights) ──
+    // ── 5. determine winner's participant index and offset ──────────────────
+    // The contract stores no offset getter; the winner computes their own
+    // cumulative offset from the KMS-revealed draw-time weights (offset[i] =
+    // Σ_{j<i} weight[j]), which the contract verifies against storage.
+    const winnerIndex = participants.findIndex(p => p.toLowerCase() === account.address.toLowerCase());
+    if (winnerIndex === -1 || winnerIndex >= Number(draw.participantCount)) {
+      throw new Error("winner not in the draw-time participant snapshot");
+    }
+    const offset = weights.slice(0, winnerIndex).reduce((a, b) => a + b, 0);
+    console.log("winner index:", winnerIndex, "| offset:", offset);
+
+    // ── 6. claim (transfers the encrypted pot, granting decryption rights) ──
     await txHash("claim", () =>
       walletClient.writeContract({
         address: POOL,
         abi: poolAbi,
         functionName: "claim",
-        args: [BigInt(drawId)],
+        args: [BigInt(drawId), BigInt(winnerIndex), offset],
         gas: 3_000_000n,
       }),
     );
@@ -201,11 +276,11 @@ try {
     });
     console.log("claimed:", claimed.claimed);
 
-    // ── 5. winner-only decryption of the prize amount ───────────────────────
+    // ── 7. winner-only decryption of the prize amount ───────────────────────
     const clear = await userDecrypt([claimed.amount], POOL.toLowerCase());
     console.log("PRIZE AMOUNT (winner-only view):", clear[claimed.amount]);
   }
-  console.log("\nDRAW E2E RESULT: PASS ✓ (draw → KMS reveal → fulfill verified on Sepolia)");
+  console.log("\nDRAW E2E RESULT: PASS ✓ (draw → batch KMS reveal → fulfill verified on Sepolia)");
 } catch (e) {
   console.error("DRAW E2E FAILED:", e instanceof Error ? e.message : e);
   process.exitCode = 1;
