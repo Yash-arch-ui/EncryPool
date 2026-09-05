@@ -11,6 +11,7 @@ const links = [
   ["Draw", "/draw"],
   ["Account", "/account"],
   ["Prizes", "/prizes"],
+  ["Faucet", "/faucet"],
   ["Info", "/info"],
 ];
 
