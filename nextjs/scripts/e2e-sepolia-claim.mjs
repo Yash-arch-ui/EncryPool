@@ -150,7 +150,12 @@ async function userDecrypt(handles, contractAddress) {
 }
 
 try {
-  const draw = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [DRAW_ID] });
+  const draw = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [DRAW_ID],
+  });
   if (!draw.fulfilled) throw new Error("draw not fulfilled yet — run the coordinator flow first");
   const participants = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "participants" });
   const me = account.address.toLowerCase();
@@ -194,12 +199,14 @@ try {
 
     // Attack 5: cross-draw offset (same args but for a different draw id, if one exists).
     const otherDrawId = DRAW_ID > 1n ? DRAW_ID - 1n : DRAW_ID + 1n;
-    const otherDraw = await publicClient.readContract({
-      address: POOL,
-      abi: poolAbi,
-      functionName: "getDraw",
-      args: [otherDrawId],
-    }).catch(() => null);
+    const otherDraw = await publicClient
+      .readContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "getDraw",
+        args: [otherDrawId],
+      })
+      .catch(() => null);
     if (otherDraw && otherDraw.fulfilled) {
       const a5 = await simulateClaim([otherDrawId, BigInt(myIndex), offset]);
       console.log("ATTACK cross-draw    →", a5.reverted ? `REVERTED ✓ (${a5.message})` : "DID NOT REVERT ✗");
@@ -225,10 +232,21 @@ try {
     console.log("already claimed — verifying winner-only decryption below.");
   } else {
     await txHash("claim", () =>
-      walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "claim", args: correctArgs, gas: 3_000_000n }),
+      walletClient.writeContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "claim",
+        args: correctArgs,
+        gas: 3_000_000n,
+      }),
     );
   }
-  const after = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [DRAW_ID] });
+  const after = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [DRAW_ID],
+  });
   console.log("post-claim:", { claimed: after.claimed, winner: after.winner });
 
   // ── winner-only decryption of the prize amount ───────────────────────────

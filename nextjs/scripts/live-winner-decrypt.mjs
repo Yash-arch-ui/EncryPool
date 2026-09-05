@@ -75,9 +75,24 @@ try {
       stateMutability: "view",
     },
   ];
-  const asset = await publicClient.readContract({ address: POOL, abi: [{ type: "function", name: "asset", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" }], functionName: "asset" });
-  const preHandle = await publicClient.readContract({ address: asset, abi: assetAbi, functionName: "confidentialBalanceOf", args: [account.address], blockNumber: 11635993n });
-  const postHandle = await publicClient.readContract({ address: asset, abi: assetAbi, functionName: "confidentialBalanceOf", args: [account.address] });
+  const asset = await publicClient.readContract({
+    address: POOL,
+    abi: [{ type: "function", name: "asset", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" }],
+    functionName: "asset",
+  });
+  const preHandle = await publicClient.readContract({
+    address: asset,
+    abi: assetAbi,
+    functionName: "confidentialBalanceOf",
+    args: [account.address],
+    blockNumber: 11635993n,
+  });
+  const postHandle = await publicClient.readContract({
+    address: asset,
+    abi: assetAbi,
+    functionName: "confidentialBalanceOf",
+    args: [account.address],
+  });
   console.log("pre-claim balance handle:", preHandle);
   console.log("post-claim balance handle:", postHandle);
   const handles = [preHandle, postHandle];
@@ -120,7 +135,13 @@ try {
   const after = BigInt(res[postHandle] ?? 0n);
   console.log("WINNER BALANCE (decrypted) pre-claim :", before.toString());
   console.log("WINNER BALANCE (decrypted) post-claim:", after.toString());
-  console.log("PRIZE DELTA (winner-only decryption) :", (after - before).toString(), "base units →", Number(after - before) / 1e6, "USDT");
+  console.log(
+    "PRIZE DELTA (winner-only decryption) :",
+    (after - before).toString(),
+    "base units →",
+    Number(after - before) / 1e6,
+    "USDT",
+  );
 } catch (e) {
   console.error("WINNER DECRYPT FAILED:", e instanceof Error ? e.message : e);
   let c = e.cause;

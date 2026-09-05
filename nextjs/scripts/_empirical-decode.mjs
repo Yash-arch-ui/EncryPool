@@ -1,10 +1,10 @@
 /* Empirical decode of the DEPLOYED intermediate ConfidentialPrizePool on an anvil fork.
  * Run from nextjs/ (so viem resolves). Assumes anvil is already running on :8545.
  */
+import fs from "node:fs";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
-import fs from "node:fs";
 
 const POOL = "0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43";
 const RPC = "http://127.0.0.1:8545";
@@ -20,27 +20,73 @@ const walletClient = createWalletClient({ account, chain: sepolia, transport: ht
 const poolAbi = [
   { type: "function", name: "participants", inputs: [], outputs: [{ type: "address[]" }], stateMutability: "view" },
   {
-    type: "function", name: "getDraw", inputs: [{ name: "drawId", type: "uint256" }],
-    outputs: [{ components: [
-      { name: "seedIndex", type: "bytes32" }, { name: "totalWeight", type: "bytes32" },
-      { name: "amount", type: "bytes32" }, { name: "winner", type: "address" },
-      { name: "fulfilled", type: "bool" }, { name: "claimed", type: "bool" },
-      { name: "revealedSeed", type: "uint64" }, { name: "totalWeightPlaintext", type: "uint64" },
-      { name: "participantCount", type: "uint256" }], type: "tuple" }],
+    type: "function",
+    name: "getDraw",
+    inputs: [{ name: "drawId", type: "uint256" }],
+    outputs: [
+      {
+        components: [
+          { name: "seedIndex", type: "bytes32" },
+          { name: "totalWeight", type: "bytes32" },
+          { name: "amount", type: "bytes32" },
+          { name: "winner", type: "address" },
+          { name: "fulfilled", type: "bool" },
+          { name: "claimed", type: "bool" },
+          { name: "revealedSeed", type: "uint64" },
+          { name: "totalWeightPlaintext", type: "uint64" },
+          { name: "participantCount", type: "uint256" },
+        ],
+        type: "tuple",
+      },
+    ],
     stateMutability: "view",
   },
-  { type: "function", name: "drawWeightHandle", inputs: [{ name: "drawId", type: "uint256" }, { name: "participantIndex", type: "uint256" }], outputs: [{ type: "bytes32" }], stateMutability: "view" },
-  { type: "function", name: "seedIndexOf", inputs: [{ name: "drawId", type: "uint256" }], outputs: [{ type: "bytes32" }], stateMutability: "view" },
-  { type: "function", name: "draw", inputs: [], outputs: [{ name: "drawId", type: "uint256" }], stateMutability: "nonpayable" },
   {
-    type: "function", name: "fulfillWinner",
-    inputs: [{ name: "drawId", type: "uint256" }, { name: "revealedSeed", type: "uint64" }, { name: "weights", type: "uint64[]" }, { name: "decryptionProof", type: "bytes" }],
-    outputs: [], stateMutability: "nonpayable",
+    type: "function",
+    name: "drawWeightHandle",
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "participantIndex", type: "uint256" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
   },
   {
-    type: "function", name: "claim",
-    inputs: [{ name: "drawId", type: "uint256" }, { name: "participantIndex", type: "uint256" }, { name: "offsetPlaintext", type: "uint256" }],
-    outputs: [], stateMutability: "nonpayable",
+    type: "function",
+    name: "seedIndexOf",
+    inputs: [{ name: "drawId", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "draw",
+    inputs: [],
+    outputs: [{ name: "drawId", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "fulfillWinner",
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "revealedSeed", type: "uint64" },
+      { name: "weights", type: "uint64[]" },
+      { name: "decryptionProof", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "claim",
+    inputs: [
+      { name: "drawId", type: "uint256" },
+      { name: "participantIndex", type: "uint256" },
+      { name: "offsetPlaintext", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
 ];
 
@@ -48,7 +94,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function gatewayPublicDecrypt(handles) {
   const post = await fetch(`${GATEWAY}/public-decrypt`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ciphertextHandles: handles, extraData: "0x00" }),
   });
   const queued = await post.json();
@@ -83,15 +130,30 @@ async function slot8Offset(drawId, index) {
 
 try {
   // 1. draw #2
-  const receipt = await send("draw", () => walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "draw", gas: 20_000_000n }));
+  const receipt = await send("draw", () =>
+    walletClient.writeContract({ address: POOL, abi: poolAbi, functionName: "draw", gas: 20_000_000n }),
+  );
   let drawId;
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() === POOL.toLowerCase() && log.topics.length >= 2) drawId = Number(BigInt(log.topics[1]));
+    if (log.address.toLowerCase() === POOL.toLowerCase() && log.topics.length >= 2)
+      drawId = Number(BigInt(log.topics[1]));
   }
   console.log("DRAW #", drawId);
 
-  const draw = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
-  console.log("draw:", { seedIndex: draw.seedIndex, totalWeight: draw.totalWeight, amount: draw.amount, winner: draw.winner, fulfilled: draw.fulfilled, participantCount: Number(draw.participantCount) });
+  const draw = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
+  console.log("draw:", {
+    seedIndex: draw.seedIndex,
+    totalWeight: draw.totalWeight,
+    amount: draw.amount,
+    winner: draw.winner,
+    fulfilled: draw.fulfilled,
+    participantCount: Number(draw.participantCount),
+  });
   const participants = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "participants" });
   console.log("participants:", participants);
 
@@ -99,7 +161,14 @@ try {
   const n = Number(draw.participantCount);
   const weightHandles = [];
   for (let i = 0; i < n; i++) {
-    weightHandles.push(await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "drawWeightHandle", args: [BigInt(drawId), BigInt(i)] }));
+    weightHandles.push(
+      await publicClient.readContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "drawWeightHandle",
+        args: [BigInt(drawId), BigInt(i)],
+      }),
+    );
     console.log(`slot8[${drawId}][${i}] PRE-fulfill:`, await slot8Offset(BigInt(drawId), BigInt(i)));
   }
 
@@ -107,13 +176,20 @@ try {
   const allHandles = [draw.seedIndex, draw.totalWeight, ...weightHandles];
   console.log("\ndecrypting", allHandles.length, "handles…");
   const result = await gatewayPublicDecrypt(allHandles);
-  const hex = (result.decryptedValue.startsWith("0x") ? result.decryptedValue.slice(2) : result.decryptedValue);
+  const hex = result.decryptedValue.startsWith("0x") ? result.decryptedValue.slice(2) : result.decryptedValue;
   const words = [];
   for (let i = 0; i < hex.length; i += 64) words.push(BigInt(`0x${hex.slice(i, i + 64)}`));
   const revealedSeed = words[0];
   const totalWeight = words[1];
   const weights = words.slice(2);
-  console.log("cleartext: seed=", revealedSeed.toString(), "totalWeight=", totalWeight.toString(), "weights=", weights.map(w => w.toString()));
+  console.log(
+    "cleartext: seed=",
+    revealedSeed.toString(),
+    "totalWeight=",
+    totalWeight.toString(),
+    "weights=",
+    weights.map(w => w.toString()),
+  );
 
   let proof = `0x${result.signatures.length.toString(16).padStart(2, "0")}`;
   for (const sig of result.signatures) proof += sig.startsWith("0x") ? sig.slice(2) : sig;
@@ -121,23 +197,55 @@ try {
   proof += extra.startsWith("0x") ? extra.slice(2) : extra;
 
   // 4. fulfill
-  await send("fulfillWinner", () => walletClient.writeContract({
-    address: POOL, abi: poolAbi, functionName: "fulfillWinner",
-    args: [BigInt(drawId), revealedSeed, weights, proof], gas: 8_000_000n,
-  }));
+  await send("fulfillWinner", () =>
+    walletClient.writeContract({
+      address: POOL,
+      abi: poolAbi,
+      functionName: "fulfillWinner",
+      args: [BigInt(drawId), revealedSeed, weights, proof],
+      gas: 8_000_000n,
+    }),
+  );
 
-  const after = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
-  console.log("\npost-fulfill:", { winner: after.winner, revealedSeed: after.revealedSeed.toString(), totalWeightPlaintext: after.totalWeightPlaintext.toString(), participantCount: Number(after.participantCount) });
+  const after = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
+  console.log("\npost-fulfill:", {
+    winner: after.winner,
+    revealedSeed: after.revealedSeed.toString(),
+    totalWeightPlaintext: after.totalWeightPlaintext.toString(),
+    participantCount: Number(after.participantCount),
+  });
 
   // winner math check: slot = seed % totalWeight; winner = i where cum_i <= slot < cum_i + w_i
   const slot = revealedSeed % totalWeight;
-  let cum = 0n, expectedWinner = -1;
-  for (let i = 0; i < weights.length; i++) { cum += weights[i]; if (slot < cum) { expectedWinner = i; break; } }
+  let cum = 0n,
+    expectedWinner = -1;
+  for (let i = 0; i < weights.length; i++) {
+    cum += weights[i];
+    if (slot < cum) {
+      expectedWinner = i;
+      break;
+    }
+  }
   const adminIndex = participants.findIndex(p => p.toLowerCase() === account.address.toLowerCase());
-  console.log("slot =", slot.toString(), "expectedWinnerIndex =", expectedWinner, "adminIndex =", adminIndex, "winner==admin?", after.winner.toLowerCase() === account.address.toLowerCase());
+  console.log(
+    "slot =",
+    slot.toString(),
+    "expectedWinnerIndex =",
+    expectedWinner,
+    "adminIndex =",
+    adminIndex,
+    "winner==admin?",
+    after.winner.toLowerCase() === account.address.toLowerCase(),
+  );
 
   // slot-8 post-fulfill: plaintext offsets?
-  for (let i = 0; i < n; i++) console.log(`slot8[${drawId}][${i}] POST-fulfill:`, await slot8Offset(BigInt(drawId), BigInt(i)));
+  for (let i = 0; i < n; i++)
+    console.log(`slot8[${drawId}][${i}] POST-fulfill:`, await slot8Offset(BigInt(drawId), BigInt(i)));
 
   // 5. claim matrix
   const winnerIndex = participants.findIndex(p => p.toLowerCase() === after.winner.toLowerCase());
@@ -146,7 +254,13 @@ try {
 
   async function tryClaim(label, index, offset, signer) {
     try {
-      const hash = await signer.writeContract({ address: POOL, abi: poolAbi, functionName: "claim", args: [BigInt(drawId), BigInt(index), offset], gas: 5_000_000n });
+      const hash = await signer.writeContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "claim",
+        args: [BigInt(drawId), BigInt(index), offset],
+        gas: 5_000_000n,
+      });
       const r = await publicClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
       console.log(`[${label}] => SUCCESS status=${r.status}`);
       return "success";
@@ -159,7 +273,11 @@ try {
   // winner's correct claim (from winner account if we have it, else simulate)
   const { parseEther, toHex } = await import("viem");
   const anvilAccount = privateKeyToAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"); // anvil #0
-  const anvilWallet = createWalletClient({ account: anvilAccount, chain: sepolia, transport: http(RPC, { timeout: 120_000 }) });
+  const anvilWallet = createWalletClient({
+    account: anvilAccount,
+    chain: sepolia,
+    transport: http(RPC, { timeout: 120_000 }),
+  });
 
   if (winnerIndex === adminIndex) {
     // winner == admin → full success path + double-claim

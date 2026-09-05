@@ -23,11 +23,24 @@ if (!pkRaw) throw new Error("no PRIVATE_KEY in .env.local");
 const account = privateKeyToAccount(pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`);
 console.log("wallet:", account.address);
 
-const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC, { timeout: 60_000 }) });
-const walletClient = createWalletClient({ account, chain: sepolia, transport: http(RPC, { timeout: 120_000 }) });
+const publicClient = createPublicClient({
+  chain: sepolia,
+  transport: http(RPC, { timeout: 60_000 }),
+});
+const walletClient = createWalletClient({
+  account,
+  chain: sepolia,
+  transport: http(RPC, { timeout: 120_000 }),
+});
 
 const poolAbi = [
-  { type: "function", name: "participants", inputs: [], outputs: [{ type: "address[]" }], stateMutability: "view" },
+  {
+    type: "function",
+    name: "participants",
+    inputs: [],
+    outputs: [{ type: "address[]" }],
+    stateMutability: "view",
+  },
   {
     type: "function",
     name: "getDraw",
@@ -83,7 +96,8 @@ async function gatewayPublicDecrypt(handles) {
     body: JSON.stringify({ ciphertextHandles: handles, extraData: "0x00" }),
   });
   const queued = await post.json();
-  if (queued.status !== "queued") throw new Error(`gateway rejected: ${JSON.stringify(queued.error ?? queued)}`);
+  if (queued.status !== "queued")
+    throw new Error(`gateway rejected: ${JSON.stringify(queued.error ?? queued)}`);
   const jobId = queued.result.jobId;
   console.log(`  gateway job ${jobId} — polling…`);
   for (let i = 0; i < 120; i++) {
@@ -91,32 +105,52 @@ async function gatewayPublicDecrypt(handles) {
     const poll = await fetch(`${GATEWAY}/public-decrypt/${jobId}`);
     const res = await poll.json();
     if (res.status === "succeeded") return res.result;
-    if (res.status === "failed") throw new Error(`gateway job failed: ${JSON.stringify(res.error ?? res)}`);
+    if (res.status === "failed")
+      throw new Error(`gateway job failed: ${JSON.stringify(res.error ?? res)}`);
   }
   throw new Error("gateway job timed out");
 }
 
 async function fulfillDraw(drawId) {
   console.log(`\n━━━ FULFILL DRAW ${drawId} ━━━`);
-  const draw = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
-  if (draw.fulfilled) { console.log(`  already fulfilled — skipping`); return null; }
+  const draw = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
+  if (draw.fulfilled) {
+    console.log(`  already fulfilled — skipping`);
+    return null;
+  }
   const n = Number(draw.participantCount);
   console.log(`  participantCount: ${n}`);
 
   const weightHandles = [];
   for (let i = 0; i < n; i++) {
-    weightHandles.push(await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "drawWeightHandle", args: [BigInt(drawId), BigInt(i)] }));
+    weightHandles.push(
+      await publicClient.readContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "drawWeightHandle",
+        args: [BigInt(drawId), BigInt(i)],
+      }),
+    );
   }
   const allHandles = [draw.seedIndex, draw.totalWeight, ...weightHandles];
   console.log(`  decrypting ${allHandles.length} handles…`);
 
   const result = await gatewayPublicDecrypt(allHandles);
-  const hex = result.decryptedValue.startsWith("0x") ? result.decryptedValue.slice(2) : result.decryptedValue;
+  const hex = result.decryptedValue.startsWith("0x")
+    ? result.decryptedValue.slice(2)
+    : result.decryptedValue;
   const words = [];
   for (let i = 0; i < hex.length; i += 64) words.push(BigInt(`0x${hex.slice(i, i + 64)}`));
   const revealedSeed = words[0];
   const weights = words.slice(2);
-  console.log(`  seed: ${revealedSeed}  totalWeight: ${words[1]}  weights: [${weights.map((w) => w.toString())}]`);
+  console.log(
+    `  seed: ${revealedSeed}  totalWeight: ${words[1]}  weights: [${weights.map((w) => w.toString())}]`,
+  );
 
   const sum = weights.reduce((a, w) => a + w, 0n);
   if (sum !== words[1]) throw new Error(`totalWeight mismatch: sum=${sum} decrypted=${words[1]}`);
@@ -127,15 +161,23 @@ async function fulfillDraw(drawId) {
   console.log(`  proof bytes: ${(proof.length - 2) / 2}`);
 
   const hash = await walletClient.writeContract({
-    address: POOL, abi: poolAbi, functionName: "fulfillWinner",
-    args: [BigInt(drawId), revealedSeed, weights, proof], gas: 5_000_000n,
+    address: POOL,
+    abi: poolAbi,
+    functionName: "fulfillWinner",
+    args: [BigInt(drawId), revealedSeed, weights, proof],
+    gas: 5_000_000n,
   });
   console.log(`  tx: ${hash}`);
   const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
   if (receipt.status !== "success") throw new Error("fulfillWinner reverted!");
   console.log(`  confirmed in block ${receipt.blockNumber}`);
 
-  const after = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [BigInt(drawId)] });
+  const after = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [BigInt(drawId)],
+  });
   console.log(`  winner: ${after.winner}  fulfilled: ${after.fulfilled}`);
   return { drawId, txHash: hash, winner: after.winner };
 }

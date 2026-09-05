@@ -20,18 +20,31 @@ const env = Object.fromEntries(
     .readFileSync(new URL("../.env.local", import.meta.url), "utf8")
     .trim()
     .split(/\r?\n/)
-    .map(l => l.split("=")),
+    .map((l) => l.split("=")),
 );
 const pkRaw = env.PRIVATE_KEY || env.DEPLOYER_PRIVATE_KEY;
 if (!pkRaw) throw new Error("no PRIVATE_KEY in .env.local");
 const account = privateKeyToAccount(pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`);
 console.log("wallet:", account.address);
 
-const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC, { timeout: 60_000 }) });
-const walletClient = createWalletClient({ account, chain: sepolia, transport: http(RPC, { timeout: 120_000 }) });
+const publicClient = createPublicClient({
+  chain: sepolia,
+  transport: http(RPC, { timeout: 60_000 }),
+});
+const walletClient = createWalletClient({
+  account,
+  chain: sepolia,
+  transport: http(RPC, { timeout: 120_000 }),
+});
 
 const poolAbi = [
-  { type: "function", name: "participants", inputs: [], outputs: [{ type: "address[]" }], stateMutability: "view" },
+  {
+    type: "function",
+    name: "participants",
+    inputs: [],
+    outputs: [{ type: "address[]" }],
+    stateMutability: "view",
+  },
   {
     type: "function",
     name: "getDraw",
@@ -78,7 +91,7 @@ const poolAbi = [
   },
 ];
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Fresh public decryption of the given handles via the Zama gateway (V2 async job). */
 async function gatewayPublicDecrypt(handles) {
@@ -88,21 +101,28 @@ async function gatewayPublicDecrypt(handles) {
     body: JSON.stringify({ ciphertextHandles: handles, extraData: "0x00" }),
   });
   const queued = await post.json();
-  if (queued.status !== "queued") throw new Error(`gateway rejected: ${JSON.stringify(queued.error ?? queued)}`);
+  if (queued.status !== "queued")
+    throw new Error(`gateway rejected: ${JSON.stringify(queued.error ?? queued)}`);
   const jobId = queued.result.jobId;
   for (let i = 0; i < 120; i++) {
     await sleep(2500);
     const poll = await fetch(`${GATEWAY}/public-decrypt/${jobId}`);
     const res = await poll.json();
     if (res.status === "succeeded") return res.result;
-    if (res.status === "failed") throw new Error(`gateway job failed: ${JSON.stringify(res.error ?? res)}`);
+    if (res.status === "failed")
+      throw new Error(`gateway job failed: ${JSON.stringify(res.error ?? res)}`);
   }
   throw new Error("gateway job timed out");
 }
 
 try {
   const drawId = 1n;
-  const draw = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [drawId] });
+  const draw = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [drawId],
+  });
   if (draw.fulfilled) throw new Error("draw 1 already fulfilled");
   console.log("draw 1 unfulfilled ✓ | participantCount:", Number(draw.participantCount));
 
@@ -110,7 +130,12 @@ try {
   const weightHandles = [];
   for (let i = 0; i < n; i++) {
     weightHandles.push(
-      await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "drawWeightHandle", args: [drawId, BigInt(i)] }),
+      await publicClient.readContract({
+        address: POOL,
+        abi: poolAbi,
+        functionName: "drawWeightHandle",
+        args: [drawId, BigInt(i)],
+      }),
     );
   }
   const allHandles = [draw.seedIndex, draw.totalWeight, ...weightHandles];
@@ -126,7 +151,10 @@ try {
   console.log("gateway cleartext:");
   console.log("  revealedSeed =", revealedSeed.toString());
   console.log("  totalWeight  =", words[1].toString());
-  console.log("  weights      =", weights.map(w => w.toString()));
+  console.log(
+    "  weights      =",
+    weights.map((w) => w.toString()),
+  );
 
   // Sanity: the decrypted totalWeight must equal the sum of decrypted weights.
   const sum = weights.reduce((a, w) => a + w, 0n);
@@ -153,16 +181,37 @@ try {
   if (receipt.status !== "success") throw new Error("fulfillWinner reverted!");
   console.log("fulfillment confirmed in block", receipt.blockNumber);
 
-  const after = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "getDraw", args: [drawId] });
-  console.log("post-fulfill:", { winner: after.winner, fulfilled: after.fulfilled, revealedSeed: after.revealedSeed?.toString(), totalWeightPlaintext: after.totalWeightPlaintext?.toString() });
+  const after = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "getDraw",
+    args: [drawId],
+  });
+  console.log("post-fulfill:", {
+    winner: after.winner,
+    fulfilled: after.fulfilled,
+    revealedSeed: after.revealedSeed?.toString(),
+    totalWeightPlaintext: after.totalWeightPlaintext?.toString(),
+  });
 
   // Winner-only data needed for claim: winner index & cumulative offset.
-  const participants = await publicClient.readContract({ address: POOL, abi: poolAbi, functionName: "participants" });
-  const winnerIndex = participants.findIndex(p => p.toLowerCase() === after.winner.toLowerCase());
+  const participants = await publicClient.readContract({
+    address: POOL,
+    abi: poolAbi,
+    functionName: "participants",
+  });
+  const winnerIndex = participants.findIndex((p) => p.toLowerCase() === after.winner.toLowerCase());
   let offset = 0n;
   for (let i = 0; i < winnerIndex; i++) offset += weights[i];
   console.log("winner index:", winnerIndex, "| offset:", offset.toString());
-  fs.writeFileSync(new URL("./live-state.json", import.meta.url), JSON.stringify({ winner: after.winner, winnerIndex, offset: offset.toString(), amountHandle: after.amount }, null, 2));
+  fs.writeFileSync(
+    new URL("./live-state.json", import.meta.url),
+    JSON.stringify(
+      { winner: after.winner, winnerIndex, offset: offset.toString(), amountHandle: after.amount },
+      null,
+      2,
+    ),
+  );
 } catch (e) {
   console.error("LIVE FULFILL FAILED:", e instanceof Error ? e.message : e);
   process.exitCode = 1;
