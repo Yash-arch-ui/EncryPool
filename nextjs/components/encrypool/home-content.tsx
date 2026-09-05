@@ -125,7 +125,7 @@ export function HomeContent() {
             className="text-3xl sm:text-4xl md:text-5xl tracking-wider"
           />
         </AnimatedContent>
-        <div className="loop-wire-container mt-20">
+        <div className="loop-wire-container mt-[5.25rem]">
           <svg className="loop-wire-svg" viewBox="0 0 1100 480" preserveAspectRatio="xMidYMid meet">
             <defs>
               <filter id="wire-glow">
