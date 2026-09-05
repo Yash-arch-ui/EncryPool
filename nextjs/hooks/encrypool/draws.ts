@@ -11,10 +11,17 @@ export type DrawState = {
   /** ms epoch of the draw block */
   ts: number;
   seedIndex: `0x${string}`;
+  totalWeight: `0x${string}`;
   amount: `0x${string}`;
   winner: string;
   fulfilled: boolean;
   claimed: boolean;
+  /** Plaintext seed revealed by KMS during fulfillWinner. 0 if not yet fulfilled.
+   *  Kept as bigint: a uint64 seed can exceed Number.MAX_SAFE_INTEGER, and
+   *  Number() conversion silently corrupts it. */
+  revealedSeed: bigint;
+  /** Plaintext total weight revealed by KMS during fulfillWinner. 0 if not yet fulfilled. */
+  totalWeightPlaintext: bigint;
 };
 
 export function makeSepoliaClient() {
@@ -123,10 +130,13 @@ export async function fetchDrawStates(): Promise<DrawState[]> {
         drawId: Number(args.drawId),
         ts: (log.blockNumber !== null ? tsByBlock.get(log.blockNumber) : undefined) ?? Date.now(),
         seedIndex: args.seedIndex,
+        totalWeight: state.totalWeight,
         amount: state.amount,
         winner: state.winner,
         fulfilled: state.fulfilled,
         claimed: state.claimed,
+        revealedSeed: state.revealedSeed ?? 0n,
+        totalWeightPlaintext: state.totalWeightPlaintext ?? 0n,
       };
     }),
   );

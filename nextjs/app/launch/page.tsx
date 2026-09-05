@@ -2,12 +2,22 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ArrowRight, LockKeyhole } from "lucide-react";
+import { useAccount } from "wagmi";
 import GlowCursor from "~~/components/encrypool/glow-cursor";
 
 export default function LaunchPage() {
   const router = useRouter();
+  const { openConnectModal } = useConnectModal();
+  const { isConnected } = useAccount();
+
+  // Navigate once the wallet connects. Doing this in an effect (instead of
+  // calling router.push during render) avoids double navigation and the
+  // "cannot update a component while rendering" warning.
+  useEffect(() => {
+    if (isConnected) router.push("/vaults");
+  }, [isConnected, router]);
 
   return (
     <main className="relative h-[calc(100svh-192px)] overflow-hidden">
@@ -43,26 +53,16 @@ export default function LaunchPage() {
               Connect a wallet to enter the encrypted vaults. Balances stay sealed — only winners ever decrypt.
             </p>
           </div>
-          <ConnectButton.Custom>
-            {({ account, chain, openConnectModal, mounted }) => {
-              const connected = mounted && account && chain;
-              if (connected) {
-                router.push("/vaults");
-                return null;
-              }
-              return (
-                <button
-                  type="button"
-                  onClick={openConnectModal}
-                  disabled={!mounted}
-                  className="group flex w-full max-w-sm items-center justify-between gap-4 rounded-xl border border-primary/60 bg-primary px-7 py-4 font-mono text-sm font-bold tracking-widest text-primary-foreground shadow-[0_0_44px_color-mix(in_srgb,var(--primary)_34%,transparent)] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70"
-                >
-                  {mounted ? "USE ENCRYPOOL" : "LOADING…"}
-                  <ArrowRight className="transition-transform group-hover:translate-x-1" />
-                </button>
-              );
-            }}
-          </ConnectButton.Custom>
+          {!isConnected && (
+            <button
+              type="button"
+              onClick={openConnectModal}
+              className="group flex w-full max-w-sm items-center justify-between gap-4 rounded-xl border border-primary/60 bg-primary px-7 py-4 font-mono text-sm font-bold tracking-widest text-primary-foreground shadow-[0_0_44px_color-mix(in_srgb,var(--primary)_34%,transparent)] transition-transform hover:-translate-y-0.5"
+            >
+              USE ENCRYPOOL
+              <ArrowRight className="transition-transform group-hover:translate-x-1" />
+            </button>
+          )}
           <p className="font-mono text-[10px] tracking-widest text-muted-foreground">
             SEPOLIA TESTNET · WALLET REQUIRED
           </p>

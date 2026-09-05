@@ -18,14 +18,14 @@ export type DrawRow = {
 
 export type DrawHistory = {
   draws: DrawRow[];
-  /** ms epoch of the next drawable moment (last draw + 1 day), null if none */
+  /** ms epoch of the next drawable moment (last draw + MIN_DRAW_INTERVAL), null if none */
   nextDrawAtMs: number | null;
   drawCount: number;
   isLoading: boolean;
   refetch: () => void;
 };
 
-const DAY_MS = 60 * 1000; // matches MIN_DRAW_INTERVAL = 1 minutes
+const DAY_MS = 60 * 1000; // matches MIN_DRAW_INTERVAL = 1 minute
 
 function formatDrawDate(ms: number): string {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -73,21 +73,29 @@ export function useDrawHistory(): DrawHistory {
     return {
       draws,
       nextDrawAtMs: lastDrawAtMs === null ? null : lastDrawAtMs + DAY_MS,
-      drawCount: draws.length,
+      // Total draws on-chain — the home page stat shouldn't be capped by the
+      // 12-row history slice.
+      drawCount: states.length,
       isLoading,
       refetch: () => refetch(),
     };
   }, [drawStates, isLoading, refetch, nowTick]);
 }
 
-/** Countdown formatter for the `DD:HH:MM:SS` displays ("02:14:37:09"). */
+/**
+ * Countdown formatter. The pool's MIN_DRAW_INTERVAL is 1 minute, so the
+ * common case renders `MM:SS`; longer waits widen to `HH:MM:SS` / `DD:HH:MM:SS`
+ * automatically instead of always showing four groups of which two are 00.
+ */
 export function formatCountdown(targetMs: number | null, now: number): string {
-  if (targetMs === null) return "--:--:--:--";
+  if (targetMs === null) return "--:--";
   const diff = Math.max(0, targetMs - now);
-  const days = Math.floor(diff / DAY_MS);
-  const hours = Math.floor((diff % DAY_MS) / 3_600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const mins = Math.floor((diff % 3_600_000) / 60_000);
   const secs = Math.floor((diff % 60_000) / 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(days)}:${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+  if (days > 0) return `${pad(days)}:${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+  if (hours > 0) return `${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+  return `${pad(mins)}:${pad(secs)}`;
 }

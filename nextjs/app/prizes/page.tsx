@@ -26,7 +26,7 @@ export default function PrizesPage() {
           </p>
           <div className="mt-8">
             <p className="font-mono text-3xl font-bold sm:text-4xl">{formatCountdown(nextDrawAtMs, now ?? 0)}</p>
-            <p className="mt-2 font-mono text-[10px] text-muted-foreground">DAYS · HRS · MIN · SEC</p>
+            <p className="mt-2 font-mono text-[10px] text-muted-foreground">MIN · SEC</p>
           </div>
           <Link
             href="/draw"
@@ -46,7 +46,7 @@ export default function PrizesPage() {
         {!isLoading && draws.length === 0 && (
           <article className="glass-panel rounded-2xl p-5">
             <p className="font-mono text-sm text-muted-foreground">
-              No draws yet — the first one opens 1 day after the pool&apos;s first deposit.
+              No draws yet — the first one opens 1 minute after the pool&apos;s first deposit.
             </p>
           </article>
         )}

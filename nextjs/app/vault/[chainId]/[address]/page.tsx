@@ -136,13 +136,7 @@ export default function VaultDetailPage() {
         await refreshPosition();
       } else {
         const msg = res.error ?? "";
-        if (msg.includes("MaxPoolFull") || msg.includes("MaxParticipantsReached")) {
-          toast.error("This vault is full — maximum participants reached. Try again after the next draw.", {
-            duration: 8000,
-          });
-        } else {
-          toast.error(msg || "Transaction failed");
-        }
+        toast.error(msg || "Transaction failed");
       }
     } catch (e) {
       toast.dismiss("tx");
@@ -199,7 +193,14 @@ export default function VaultDetailPage() {
               id="amount"
               inputMode="decimal"
               value={amount}
-              onChange={event => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
+              onChange={event => {
+                let v = event.target.value.replace(/[^0-9.]/g, "");
+                // Allow at most one decimal point — "1.2.3" would silently
+                // fail parseUnits and leave the button disabled.
+                const dot = v.indexOf(".");
+                if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "");
+                setAmount(v);
+              }}
               placeholder="0.00"
               className="min-w-0 flex-1 bg-transparent py-5 font-mono text-2xl outline-none"
             />
@@ -223,7 +224,7 @@ export default function VaultDetailPage() {
                   : hasPosition
                     ? "Encrypt & deposit"
                     : "Join vault"
-                : "Decrypt & withdraw"}
+                : "Encrypt & withdraw"}
           </button>
         </section>
         <div className="flex flex-col gap-6">

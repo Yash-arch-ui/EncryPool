@@ -45,12 +45,18 @@ export default function AccountPage() {
     }
     try {
       const res = await checkResult();
-      if (!claimable && !res.iWon && res.revealed === 0 && claimedByMe === null) {
-        toast.success("No pending draws to verify yet.");
-      } else if (res.revealed > 0 && !res.iWon) {
-        toast.success(`Winner revealed for ${res.revealed} draw${res.revealed > 1 ? "s" : ""} — not you this time.`);
-      } else if (emptyPotWin !== null) {
+      if (emptyPotWin !== null) {
         toast.success("You won a draw whose pot was never funded — nothing to claim from it.");
+      } else if (res.iWon && claimable !== null) {
+        toast.success("You won — claim your prize below.");
+      } else if (res.revealed > 0) {
+        toast.success(
+          `${res.revealed} draw${res.revealed > 1 ? "s" : ""} awaiting coordinator fulfillment — the winner is resolved on-chain by the KMS-verified reveal.`,
+        );
+      } else if (claimedByMe !== null && claimedByMe.claimed) {
+        toast.success("Prize already claimed — reveal the amount below.");
+      } else {
+        toast.success("No pending draws yet — the next draw will appear here after it is fulfilled.");
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message.slice(0, 160) : "Check result failed");
@@ -134,7 +140,7 @@ export default function AccountPage() {
             disabled={isChecking || isRevealingPrize}
             className="mt-8 w-full rounded-full bg-accent px-4 py-3 font-bold text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
           >
-            {isChecking ? "Verifying on KMS…" : isRevealingPrize ? "Decrypting…" : actionLabel}
+            {isChecking ? "Checking…" : isRevealingPrize ? "Decrypting…" : actionLabel}
           </button>
         </aside>
       </div>

@@ -104,7 +104,7 @@ export default function DrawPage() {
                 <p className="mt-2 font-mono text-3xl font-bold sm:text-4xl">
                   {noPreviousDraws ? (hasParticipants ? "Ready now" : "Waiting for participants") : countdown}
                 </p>
-                <p className="mt-2 font-mono text-[10px] text-muted-foreground">DAYS · HRS · MIN · SEC</p>
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">MIN · SEC</p>
                 <div className="mt-5 h-px bg-gradient-to-r from-secondary/70 to-transparent" />
                 <div className="mt-5 flex items-center gap-3 text-sm text-muted-foreground">
                   <Users className="size-4 shrink-0 text-secondary" />
@@ -192,7 +192,7 @@ export default function DrawPage() {
             <p className="mt-3 font-mono text-4xl font-bold sm:text-5xl">
               {noPreviousDraws ? (hasParticipants ? "Ready" : "—") : countdown}
             </p>
-            <p className="mt-2 font-mono text-xs text-muted-foreground">DAYS · HRS · MIN · SEC</p>
+            <p className="mt-2 font-mono text-xs text-muted-foreground">MIN · SEC</p>
           </div>
         </div>
       </div>

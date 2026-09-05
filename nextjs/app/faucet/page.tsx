@@ -8,6 +8,7 @@ import { type Address, formatUnits, parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import AnimatedContent from "~~/components/encrypool/AnimatedContent";
+import { maskHandle } from "~~/hooks/encrypool/shared";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 
 const USDT_MOCK_ADDRESS = "0xa7dA08FafDC9097Cc0E7D4f113A61e31d7e8e9b0" as Address;
@@ -66,13 +67,6 @@ const usdtMockAbi = [
 const cusdtWrapperAbi = [
   {
     type: "function" as const,
-    name: "balanceOf",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view" as const,
-  },
-  {
-    type: "function" as const,
     name: "wrap",
     inputs: [
       { name: "account", type: "address" },
@@ -126,10 +120,14 @@ export default function FaucetPage() {
       const { createPublicClient, http } = await import("viem");
       const { sepolia } = await import("viem/chains");
       const client = createPublicClient({ chain: sepolia, transport: http() });
+      // cUSDT is a confidential ERC-7984 token — it has no plaintext
+      // `balanceOf`. Read the encrypted balance handle instead; the value
+      // stays sealed and is shown masked (only the winner's wallet can
+      // decrypt it inside the vault).
       return client.readContract({
         address: CUSDT_WRAPPER_ADDRESS,
         abi: cusdtWrapperAbi,
-        functionName: "balanceOf",
+        functionName: "confidentialBalanceOf",
         args: [address!],
       });
     },
@@ -237,11 +235,15 @@ export default function FaucetPage() {
                 <article className="glass-panel rounded-2xl p-6">
                   <p className="font-mono text-[10px] text-muted-foreground">CONFIDENTIAL cUSDT BALANCE</p>
                   <p className="mt-3 font-mono text-2xl font-bold">
-                    {formatBalance(confidentialBalance)} <span className="text-sm text-muted-foreground">cUSDT</span>
+                    {confidentialBalance && !/^0x0+$/.test(confidentialBalance)
+                      ? maskHandle(confidentialBalance)
+                      : "0.00"}{" "}
+                    <span className="text-sm text-muted-foreground">cUSDT</span>
                   </p>
                   <div className="mt-4 h-px bg-gradient-to-r from-primary/70 to-transparent" />
                   <p className="mt-3 text-xs text-muted-foreground">
-                    The encrypted token held by the vault. Only you can decrypt its value.
+                    The encrypted token held by the vault. Its value stays sealed — only your wallet can decrypt it
+                    inside the vault.
                   </p>
                 </article>
               </AnimatedContent>
