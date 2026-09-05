@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {FHE, ebool, euint64} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, euint64} from "@fhevm/solidity/lib/FHE.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /// @title EncryptedBalanceTracker
@@ -18,11 +18,19 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
     }
 
     /// @dev Upper bound on the weight's time factor so stale checkpoints cannot dominate
-    /// draws forever and weight products stay far from euint128 truncation.
+    ///      draws forever and weight products stay far from euint128 truncation.
     uint64 public constant MAX_WEIGHT_WINDOW = 30 days;
 
     /// @dev The only address allowed to move balances (the vault owning this tracker).
     address public immutable vault;
+
+    /// @dev The only address allowed to read weights (the prize pool). This is a
+    ///      confidentiality requirement, not an access-control nicety: if anyone
+    ///      could call computeWeight for an arbitrary account, they could
+    ///      makePubliclyDecryptable the returned handle (they receive transient
+    ///      ACL) and public-decrypt the account's exact weight, from which the
+    ///      account's balance is directly computable.
+    address public weightReader;
 
     mapping(address account => Checkpoint) private _checkpoints;
 
@@ -30,6 +38,15 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
 
     constructor(address vault_) ZamaEthereumConfig() {
         vault = vault_;
+        weightReader = address(0);
+    }
+
+    /// @dev Wire-up for the vault: records which pool may read weights. Only
+    ///      callable once, by the vault, so the ACL cannot be reassigned.
+    function setWeightReader(address pool) external {
+        if (msg.sender != vault) revert UnauthorizedCaller(msg.sender);
+        if (weightReader != address(0)) revert UnauthorizedCaller(msg.sender);
+        weightReader = pool;
     }
 
     /// @notice Records a new encrypted checkpoint for `account`.
@@ -68,6 +85,11 @@ contract EncryptedBalanceTracker is ZamaEthereumConfig {
     ///      per-participant HCU cost at 596k (FheMul euint64) vs 1.69M (FheMul euint128),
     ///      which is critical for staying under the 20M HCU/tx limit on real Sepolia.
     function computeWeight(address account) external returns (euint64 weight) {
+        // Only the pool may pull weights. A permissionless computeWeight would
+        // leak balances: any caller receives transient ACL on the fresh handle
+        // and could makePubliclyDecryptable + public-decrypt it.
+        if (msg.sender != weightReader) revert UnauthorizedCaller(msg.sender);
+
         Checkpoint storage checkpoint = _checkpoints[account];
         if (!FHE.isInitialized(checkpoint.balance)) {
             return FHE.asEuint64(0);
