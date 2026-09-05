@@ -27,7 +27,7 @@ export type DrawHistory = {
   refetch: () => void;
 };
 
-const DAY_MS = 60 * 1000; // matches MIN_DRAW_INTERVAL = 1 minute
+const DRAW_INTERVAL_MS = 60 * 60 * 1000; // matches MIN_DRAW_INTERVAL = 60 minutes
 
 function formatDrawDate(ms: number): string {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -36,8 +36,8 @@ function formatDrawDate(ms: number): string {
 /**
  * Real draw history from ConfidentialPrizePool (Sepolia). Prize amounts stay
  * "🔒 Encrypted": the amount handle is decryptable by the winner alone.
- * Also exposes the public draw clock: MIN_DRAW_INTERVAL is 1 minute, so
- * nextDrawAtMs = lastDrawBlock.timestamp + 1 minute.
+ * Also exposes the public draw clock: MIN_DRAW_INTERVAL is 60 minutes, so
+ * nextDrawAtMs = lastDrawBlock.timestamp + 60 minutes.
  */
 export function useDrawHistory(): DrawHistory {
   const pool = poolDeployment();
@@ -75,7 +75,7 @@ export function useDrawHistory(): DrawHistory {
     const lastDrawAtMs = states.length > 0 ? Math.max(...states.map(s => s.ts)) : null;
     return {
       draws,
-      nextDrawAtMs: lastDrawAtMs === null ? null : lastDrawAtMs + DAY_MS,
+      nextDrawAtMs: lastDrawAtMs === null ? null : lastDrawAtMs + DRAW_INTERVAL_MS,
       // Total draws on-chain — the home page stat shouldn't be capped by the
       // 12-row history slice.
       drawCount: states.length,
@@ -86,12 +86,12 @@ export function useDrawHistory(): DrawHistory {
 }
 
 /**
- * Countdown formatter. The pool's MIN_DRAW_INTERVAL is 1 minute, so the
- * common case renders `MM:SS`; longer waits widen to `HH:MM:SS` / `DD:HH:MM:SS`
- * automatically instead of always showing four groups of which two are 00.
+ * Countdown formatter. The pool's MIN_DRAW_INTERVAL is 60 minutes, so the
+ * common case renders `HH:MM:SS`; longer waits widen to `DD:HH:MM:SS`
+ * automatically.
  */
 export function formatCountdown(targetMs: number | null, now: number): string {
-  if (targetMs === null) return "--:--";
+  if (targetMs === null) return "--:--:--";
   const diff = Math.max(0, targetMs - now);
   const pad = (n: number) => String(n).padStart(2, "0");
   const days = Math.floor(diff / 86_400_000);

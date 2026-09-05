@@ -8,7 +8,7 @@ import { FheOrb } from "~~/components/encrypool/fhe-orb";
 import { shortHex } from "~~/hooks/encrypool/shared";
 import { formatCountdown, useDrawHistory } from "~~/hooks/encrypool/use-encrypool";
 
-const MIN_DRAW_INTERVAL_MS = 60_000;
+const MIN_DRAW_INTERVAL_MS = 3_600_000;
 
 export default function PrizesPage() {
   const { draws, isLoading } = useDrawHistory();

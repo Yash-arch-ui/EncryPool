@@ -552,13 +552,13 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
 
     function test_keeperRotation_works() public {
         _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
+        vm.warp(block.timestamp + 3601);
 
         // Old keeper draws.
         vm.prank(keeper);
         pool.draw();
 
-        vm.warp(block.timestamp + 100);
+        vm.warp(block.timestamp + 3601);
 
         // Deployer (vault owner) rotates keeper.
         address newKeeper = vm.addr(0xBEEF);
@@ -579,14 +579,14 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
     function test_drawCount_increments() public {
         assertEq(pool.drawCount(), 0);
         _deposit(alice, alicePk, 1000e6);
-        vm.warp(block.timestamp + 100);
+        vm.warp(block.timestamp + 3601);
 
         vm.prank(keeper);
         pool.draw();
         assertEq(pool.drawCount(), 1);
         assertEq(pool.lastDrawAt(), block.timestamp);
 
-        vm.warp(block.timestamp + 100);
+        vm.warp(block.timestamp + 3601);
         vm.prank(keeper);
         pool.draw();
         assertEq(pool.drawCount(), 2);
@@ -599,7 +599,7 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
 
         vm.prank(keeper);
         pool.draw();
-        uint64 expected = uint64(block.timestamp) + 1 minutes;
+        uint64 expected = uint64(block.timestamp) + 60 minutes;
         assertEq(pool.nextDrawAt(), expected);
     }
 
@@ -611,7 +611,7 @@ contract ConfidentialPrizePoolTest is PoolTestBase {
         pool.draw();
         assertFalse(pool.isDrawDue(), "just drew => not due");
 
-        vm.warp(block.timestamp + 1 minutes);
+        vm.warp(block.timestamp + 60 minutes);
         assertTrue(pool.isDrawDue(), "cooldown elapsed => due again");
     }
 }

@@ -42,7 +42,7 @@ contract ConfidentialPrizePool is ZamaEthereumConfig {
         uint256 participantCount;
     }
 
-    uint64 public constant MIN_DRAW_INTERVAL = 1 minutes;
+    uint64 public constant MIN_DRAW_INTERVAL = 60 minutes;
 
     IERC7984 public immutable asset;
     ConfidentialPrizeVault public immutable vault;

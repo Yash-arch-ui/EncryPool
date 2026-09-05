@@ -70,7 +70,7 @@ export default function DrawPage() {
     }
   }, [draws, lastDrawTs]);
 
-  const MIN_DRAW_INTERVAL_MS = 60_000;
+  const MIN_DRAW_INTERVAL_MS = 3_600_000;
   const hasParticipants = typeof participantCount === "bigint" && participantCount > 0n;
   const nextDrawAtMs = lastDrawTs !== null ? lastDrawTs + MIN_DRAW_INTERVAL_MS : null;
   const eligible = nextDrawAtMs === null ? hasParticipants : now !== null && now >= nextDrawAtMs;
