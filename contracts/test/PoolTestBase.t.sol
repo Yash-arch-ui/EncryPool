@@ -15,7 +15,7 @@ import {EncryptedBalanceTracker} from "../src/EncryptedBalanceTracker.sol";
 import {ebool, euint64, euint128, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
 import {EmptyUUPSProxy} from "@fhevm/host-contracts/contracts/emptyProxy/EmptyUUPSProxy.sol";
 import {hcuLimitAdd} from "@fhevm/host-contracts/addresses/FHEVMHostAddresses.sol";
-import {HCULimitNoCap} from "../dependencies/forge-fhevm-eba2324/src/HCULimitNoCap.sol";
+import {HCULimitNoCap} from "./HCULimitNoCap.sol";
 
 contract PoolTestUSDT is ERC20 {
     constructor() ERC20("Pool Test USDT", "USDT") {
