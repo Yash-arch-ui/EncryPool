@@ -10,7 +10,7 @@ import type { ContractDeployment } from "~~/utils/contract";
 
 const REMOTE = {
   11155111: {
-    address: "0x95Fd2d80Bb537fA685Ca0A4830C144bab66e278d",
+    address: "0xD87cd004661efD7ceaE2aA8668eC4F27D7CAbb43",
     abi: [
       {
         type: "constructor",
@@ -32,19 +32,6 @@ const REMOTE = {
           },
         ],
         stateMutability: "nonpayable",
-      },
-      {
-        type: "function",
-        name: "MAX_PARTICIPANTS",
-        inputs: [],
-        outputs: [
-          {
-            name: "",
-            type: "uint256",
-            internalType: "uint256",
-          },
-        ],
-        stateMutability: "view",
       },
       {
         type: "function",
@@ -81,6 +68,16 @@ const REMOTE = {
             type: "uint256",
             internalType: "uint256",
           },
+          {
+            name: "participantIndex",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "offsetPlaintext",
+            type: "uint256",
+            internalType: "uint256",
+          },
         ],
         outputs: [],
         stateMutability: "nonpayable",
@@ -113,6 +110,30 @@ const REMOTE = {
       },
       {
         type: "function",
+        name: "drawWeightHandle",
+        inputs: [
+          {
+            name: "drawId",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "participantIndex",
+            type: "uint256",
+            internalType: "uint256",
+          },
+        ],
+        outputs: [
+          {
+            name: "",
+            type: "bytes32",
+            internalType: "euint64",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
         name: "fulfillWinner",
         inputs: [
           {
@@ -121,9 +142,14 @@ const REMOTE = {
             internalType: "uint256",
           },
           {
-            name: "winnerIndex",
-            type: "uint8",
-            internalType: "uint8",
+            name: "revealedSeed",
+            type: "uint64",
+            internalType: "uint64",
+          },
+          {
+            name: "weights",
+            type: "uint64[]",
+            internalType: "uint64[]",
           },
           {
             name: "decryptionProof",
@@ -171,7 +197,12 @@ const REMOTE = {
               {
                 name: "seedIndex",
                 type: "bytes32",
-                internalType: "euint8",
+                internalType: "euint64",
+              },
+              {
+                name: "totalWeight",
+                type: "bytes32",
+                internalType: "euint64",
               },
               {
                 name: "amount",
@@ -193,6 +224,21 @@ const REMOTE = {
                 type: "bool",
                 internalType: "bool",
               },
+              {
+                name: "revealedSeed",
+                type: "uint64",
+                internalType: "uint64",
+              },
+              {
+                name: "totalWeightPlaintext",
+                type: "uint64",
+                internalType: "uint64",
+              },
+              {
+                name: "participantCount",
+                type: "uint256",
+                internalType: "uint256",
+              },
             ],
           },
         ],
@@ -207,6 +253,25 @@ const REMOTE = {
             name: "",
             type: "uint256",
             internalType: "uint256",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
+        name: "participantWeight",
+        inputs: [
+          {
+            name: "account",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+        outputs: [
+          {
+            name: "",
+            type: "bytes32",
+            internalType: "euint64",
           },
         ],
         stateMutability: "view",
@@ -239,19 +304,6 @@ const REMOTE = {
       },
       {
         type: "function",
-        name: "registerParticipant",
-        inputs: [
-          {
-            name: "account",
-            type: "address",
-            internalType: "address",
-          },
-        ],
-        outputs: [],
-        stateMutability: "nonpayable",
-      },
-      {
-        type: "function",
         name: "seedIndexOf",
         inputs: [
           {
@@ -264,10 +316,33 @@ const REMOTE = {
           {
             name: "",
             type: "bytes32",
-            internalType: "euint8",
+            internalType: "euint64",
           },
         ],
         stateMutability: "view",
+      },
+      {
+        type: "function",
+        name: "updateParticipantWeight",
+        inputs: [
+          {
+            name: "account",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "oldWeight",
+            type: "bytes32",
+            internalType: "euint64",
+          },
+          {
+            name: "",
+            type: "bytes32",
+            internalType: "euint64",
+          },
+        ],
+        outputs: [],
+        stateMutability: "nonpayable",
       },
       {
         type: "function",
@@ -361,26 +436,7 @@ const REMOTE = {
       },
       {
         type: "event",
-        name: "WinnerSeeded",
-        inputs: [
-          {
-            name: "drawId",
-            type: "uint256",
-            indexed: true,
-            internalType: "uint256",
-          },
-          {
-            name: "seedIndex",
-            type: "bytes32",
-            indexed: false,
-            internalType: "euint8",
-          },
-        ],
-        anonymous: false,
-      },
-      {
-        type: "event",
-        name: "WinnerSet",
+        name: "WinnerFulfilled",
         inputs: [
           {
             name: "drawId",
@@ -393,6 +449,37 @@ const REMOTE = {
             type: "address",
             indexed: true,
             internalType: "address",
+          },
+          {
+            name: "revealedSeed",
+            type: "uint64",
+            indexed: false,
+            internalType: "uint64",
+          },
+          {
+            name: "totalWeight",
+            type: "uint64",
+            indexed: false,
+            internalType: "uint64",
+          },
+        ],
+        anonymous: false,
+      },
+      {
+        type: "event",
+        name: "WinnerSeeded",
+        inputs: [
+          {
+            name: "drawId",
+            type: "uint256",
+            indexed: true,
+            internalType: "uint256",
+          },
+          {
+            name: "seedIndex",
+            type: "bytes32",
+            indexed: false,
+            internalType: "euint64",
           },
         ],
         anonymous: false,
@@ -424,12 +511,7 @@ const REMOTE = {
       },
       {
         type: "error",
-        name: "InvalidWinnerIndex",
-        inputs: [],
-      },
-      {
-        type: "error",
-        name: "MaxParticipantsReached",
+        name: "InvalidWeightsLength",
         inputs: [],
       },
       {
@@ -440,6 +522,11 @@ const REMOTE = {
       {
         type: "error",
         name: "NotWinner",
+        inputs: [],
+      },
+      {
+        type: "error",
+        name: "NotYourIndex",
         inputs: [],
       },
       {
@@ -460,7 +547,7 @@ const REMOTE = {
       },
       {
         type: "error",
-        name: "TooManyParticipants",
+        name: "TotalWeightIsZero",
         inputs: [],
       },
       {
@@ -480,7 +567,7 @@ const REMOTE = {
         inputs: [],
       },
     ],
-    deployedOnBlock: 0,
+    deployedOnBlock: 11635651,
   },
 } as const;
 

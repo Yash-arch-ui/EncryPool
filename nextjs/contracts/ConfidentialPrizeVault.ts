@@ -10,7 +10,7 @@ import type { ContractDeployment } from "~~/utils/contract";
 
 const REMOTE = {
   11155111: {
-    address: "0x40C650616452FE3cf00479623655e450385fA361",
+    address: "0xe1e6a91Dd473699F01a06A2929a56aEA10c730D4",
     abi: [
       {
         type: "constructor",
@@ -79,6 +79,19 @@ const REMOTE = {
         ],
         outputs: [],
         stateMutability: "nonpayable",
+      },
+      {
+        type: "function",
+        name: "owner",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+        stateMutability: "view",
       },
       {
         type: "function",
@@ -222,7 +235,7 @@ const REMOTE = {
       },
       {
         type: "error",
-        name: "MaxPoolFull",
+        name: "NotOwner",
         inputs: [],
       },
       {
@@ -252,7 +265,7 @@ const REMOTE = {
         inputs: [],
       },
     ],
-    deployedOnBlock: 0,
+    deployedOnBlock: 11635650,
   },
 } as const;
 
