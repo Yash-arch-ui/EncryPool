@@ -37,7 +37,6 @@ export function DecryptionProgress({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    const total = STEPS.reduce((s, step) => s + step.duration, 0);
     let acc = 0;
     for (let i = 0; i < STEPS.length; i++) {
       acc += STEPS[i].duration;

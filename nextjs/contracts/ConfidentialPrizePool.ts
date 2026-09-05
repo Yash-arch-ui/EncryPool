@@ -30,6 +30,11 @@ const REMOTE = {
             type: "address",
             internalType: "contract EncryptedBalanceTracker",
           },
+          {
+            name: "keeper_",
+            type: "address",
+            internalType: "address",
+          },
         ],
         stateMutability: "nonpayable",
       },
@@ -107,6 +112,19 @@ const REMOTE = {
           },
         ],
         stateMutability: "nonpayable",
+      },
+      {
+        type: "function",
+        name: "drawCount",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "uint256",
+            internalType: "uint256",
+          },
+        ],
+        stateMutability: "view",
       },
       {
         type: "function",
@@ -246,6 +264,58 @@ const REMOTE = {
       },
       {
         type: "function",
+        name: "isDrawDue",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "bool",
+            internalType: "bool",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
+        name: "keeper",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
+        name: "lastDrawAt",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "uint64",
+            internalType: "uint64",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
+        name: "nextDrawAt",
+        inputs: [],
+        outputs: [
+          {
+            name: "",
+            type: "uint64",
+            internalType: "uint64",
+          },
+        ],
+        stateMutability: "view",
+      },
+      {
+        type: "function",
         name: "participantCount",
         inputs: [],
         outputs: [
@@ -323,6 +393,19 @@ const REMOTE = {
       },
       {
         type: "function",
+        name: "setKeeper",
+        inputs: [
+          {
+            name: "newKeeper",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+        outputs: [],
+        stateMutability: "nonpayable",
+      },
+      {
+        type: "function",
         name: "updateParticipantWeight",
         inputs: [
           {
@@ -336,7 +419,7 @@ const REMOTE = {
             internalType: "euint64",
           },
           {
-            name: "",
+            name: "newWeight",
             type: "bytes32",
             internalType: "euint64",
           },
@@ -369,6 +452,25 @@ const REMOTE = {
           },
         ],
         stateMutability: "view",
+      },
+      {
+        type: "event",
+        name: "KeeperUpdated",
+        inputs: [
+          {
+            name: "oldKeeper",
+            type: "address",
+            indexed: true,
+            internalType: "address",
+          },
+          {
+            name: "newKeeper",
+            type: "address",
+            indexed: true,
+            internalType: "address",
+          },
+        ],
+        anonymous: false,
       },
       {
         type: "event",
@@ -521,6 +623,11 @@ const REMOTE = {
       },
       {
         type: "error",
+        name: "NotKeeper",
+        inputs: [],
+      },
+      {
+        type: "error",
         name: "NotWinner",
         inputs: [],
       },
@@ -564,6 +671,11 @@ const REMOTE = {
       {
         type: "error",
         name: "ZamaProtocolUnsupported",
+        inputs: [],
+      },
+      {
+        type: "error",
+        name: "ZeroKeeper",
         inputs: [],
       },
     ],

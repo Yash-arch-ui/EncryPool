@@ -11,6 +11,7 @@ const links = [
   ["Draw", "/draw"],
   ["Account", "/account"],
   ["Prizes", "/prizes"],
+  ["Info", "/info"],
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
