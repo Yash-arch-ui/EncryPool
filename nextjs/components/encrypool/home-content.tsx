@@ -23,8 +23,8 @@ const reasons = [
   ],
   [
     Gauge,
-    "Encrypted amounts, no targeting",
-    "Since balances are sealed, attackers cannot front-run or target high-value accounts.",
+    "Front-running protection",
+    "Encrypted balances make it impossible to detect large deposits or frontrun transactions.",
   ],
   [
     ShieldCheck,
